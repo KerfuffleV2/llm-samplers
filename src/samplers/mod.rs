@@ -1,3 +1,4 @@
+mod flat_bias;
 mod freqpresence;
 mod greedy;
 mod rand_distrib;
@@ -9,6 +10,6 @@ mod top_p;
 mod typical;
 
 pub use self::{
-    freqpresence::*, greedy::*, rand_distrib::*, repetition::*, tail_free::*, temperature::*,
-    top_k::*, top_p::*, typical::*,
+    flat_bias::*, freqpresence::*, greedy::*, rand_distrib::*, repetition::*, tail_free::*,
+    temperature::*, top_k::*, top_p::*, typical::*,
 };

@@ -5,16 +5,29 @@ const TE1: &[f32] = &[0.4, 0.3, 0.2, 0.1];
 
 type TestValidator<S> = fn(&mut S, &mut Logits<u32, f32>, &[f32]);
 
+fn test_sampler_ll<S: Sampler<u32, f32>>(
+    use_ln: bool,
+    use_sm: bool,
+    sampler: &mut S,
+    input: &[f32],
+    expected: &[f32],
+    vf: TestValidator<S>,
+) {
+    let mut logits = Logits::from(input.iter().map(|i| if use_ln { i.ln() } else { *i }));
+    if use_sm {
+        logits.softmax();
+    }
+    let result_logits = sampler.sample(&mut logits);
+    vf(sampler, result_logits, expected);
+}
+
 fn test_sampler<S: Sampler<u32, f32>>(
     sampler: &mut S,
     input: &[f32],
     expected: &[f32],
     vf: TestValidator<S>,
 ) {
-    let mut logits = Logits::from(input.iter().map(|i| i.ln()));
-    logits.softmax();
-    let result_logits = sampler.sample(&mut logits);
-    vf(sampler, result_logits, expected);
+    test_sampler_ll(true, true, sampler, input, expected, vf)
 }
 
 fn test_sampler_no_sm<S: Sampler<u32, f32>>(
@@ -23,9 +36,16 @@ fn test_sampler_no_sm<S: Sampler<u32, f32>>(
     expected: &[f32],
     vf: TestValidator<S>,
 ) {
-    let mut logits = Logits::from(input.iter().map(|i| i.ln()));
-    let result_logits = sampler.sample(&mut logits);
-    vf(sampler, result_logits, expected);
+    test_sampler_ll(true, false, sampler, input, expected, vf)
+}
+
+fn test_sampler_raw<S: Sampler<u32, f32>>(
+    sampler: &mut S,
+    input: &[f32],
+    expected: &[f32],
+    vf: TestValidator<S>,
+) {
+    test_sampler_ll(false, false, sampler, input, expected, vf)
 }
 
 fn validate(
@@ -49,6 +69,14 @@ fn validate_sm(
     expected: &[f32],
 ) {
     validate(sampler, logits.softmax(), expected);
+}
+
+fn validate_eq(
+    _sampler: &mut impl Sampler<u32, f32>,
+    logits: &mut Logits<u32, f32>,
+    expected: &[f32],
+) {
+    assert_eq!(logits.iter().map(|l| l.logit).collect::<Vec<_>>(), expected)
 }
 
 fn do_test_greedy(it: impl Iterator<Item = f32>, expected: Option<u32>) {
@@ -149,4 +177,22 @@ fn test_tail_free() {
     test_sampler_no_sm(&mut SampleTailFree::new(0.25, 1), T, &[0.3], validate);
     test_sampler_no_sm(&mut SampleTailFree::new(0.75, 1), T, &[0.3, 0.25], validate);
     test_sampler_no_sm(&mut SampleTailFree::new(0.99, 1), T, &[0.3, 0.25], validate);
+}
+
+#[test]
+fn test_flat_bias() {
+    const T: &[f32] = &[0.1, 0.15, 0.2, 0.25, 0.3];
+
+    test_sampler_raw(
+        &mut SampleFlatBias::new(&[(0, f32::NEG_INFINITY)]),
+        T,
+        &[f32::NEG_INFINITY, 0.15, 0.2, 0.25, 0.3],
+        validate_eq,
+    );
+    test_sampler_raw(
+        &mut SampleFlatBias::new(&[(3, f32::NEG_INFINITY)]),
+        T,
+        &[0.1, 0.15, 0.2, f32::NEG_INFINITY, 0.3],
+        validate_eq,
+    );
 }

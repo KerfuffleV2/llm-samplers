@@ -4,6 +4,8 @@ use num_traits::{Float, FromPrimitive, PrimInt, ToPrimitive};
 
 pub trait CanTokenId: PrimInt + FromPrimitive + ToPrimitive {}
 
+impl<T: PrimInt + FromPrimitive + ToPrimitive> CanTokenId for T {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Logit<TID, L> {
     pub token_id: TID,
