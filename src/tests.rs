@@ -1,4 +1,4 @@
-use super::*;
+use super::prelude::*;
 
 const T1: &[f32] = &[0.1, 0.2, 0.3, 0.4];
 const TE1: &[f32] = &[0.4, 0.3, 0.2, 0.1];
@@ -80,9 +80,8 @@ fn validate_eq(
 }
 
 fn do_test_greedy(it: impl Iterator<Item = f32>, expected: Option<u32>) {
-    let mut logits = Logits::from(it);
     let mut g = SampleGreedy::new();
-    g.sample(&mut logits);
+    Logits::from(it).sample(&mut g);
     assert_eq!(g.get_token_id(), expected);
 }
 

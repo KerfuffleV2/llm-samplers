@@ -1,6 +1,6 @@
 use num_traits::{Float, PrimInt};
 
-pub use crate::{samplers::*, types::*};
+use crate::types::*;
 
 /// Repetition penalty sampling
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,6 +1,6 @@
 use num_traits::Float;
 
-pub use crate::types::*;
+use crate::types::*;
 
 /// Flat bias sampling
 #[derive(Debug, Clone, PartialEq)]

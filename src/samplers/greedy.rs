@@ -1,6 +1,6 @@
 use num_traits::{Float, PrimInt};
 
-pub use crate::types::*;
+use crate::types::*;
 
 /// Greedy sampling
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

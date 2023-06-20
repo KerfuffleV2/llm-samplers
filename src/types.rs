@@ -84,6 +84,10 @@ impl<TID: PrimInt, L: Float> Logits<TID, L> {
         self.iter_mut().for_each(|l| l.prob = l.prob / cum_sum);
         self
     }
+
+    pub fn sample<S: Sampler<TID, L>>(&mut self, sampler: &mut S) -> &mut Self {
+        sampler.sample(self)
+    }
 }
 
 pub trait Sampler<TID: PrimInt, L: Float> {

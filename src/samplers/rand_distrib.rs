@@ -3,7 +3,7 @@ use rand::{
     Rng,
 };
 
-pub use crate::types::*;
+use crate::types::*;
 
 /// Random distribution sampling
 #[derive(Debug)]

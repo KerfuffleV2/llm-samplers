@@ -1,7 +1,9 @@
-mod samplers;
-mod types;
+pub mod samplers;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
 
-pub use crate::{samplers::*, types::*};
+pub mod prelude {
+    pub use crate::{samplers::*, types::*};
+}

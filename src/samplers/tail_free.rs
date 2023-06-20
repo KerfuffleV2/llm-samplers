@@ -1,6 +1,6 @@
 use num_traits::{Float, PrimInt};
 
-pub use crate::types::*;
+use crate::types::*;
 
 /// Tail free sampling
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

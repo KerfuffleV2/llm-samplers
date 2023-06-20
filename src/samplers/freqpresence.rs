@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use num_traits::{Float, PrimInt};
 
-pub use crate::types::*;
+use crate::types::*;
 
 /// Presence and frequency penalty sampling
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
