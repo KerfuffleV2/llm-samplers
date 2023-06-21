@@ -195,3 +195,13 @@ fn test_flat_bias() {
         validate_eq,
     );
 }
+
+#[test]
+fn test_rand_distrib() {
+    let mut sampler =
+        RandDistribSampler::<u32, rand::rngs::StdRng>::new(Box::new(RngBox::new(Some(123))));
+    Logits::from([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln())).sample(&mut sampler);
+    assert_eq!(sampler.get_token_id(), Some(0));
+    Logits::from([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln())).sample(&mut sampler);
+    assert_eq!(sampler.get_token_id(), Some(2));
+}
