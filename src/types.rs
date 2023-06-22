@@ -88,8 +88,16 @@ impl<TID: PrimInt, L: Float> Logits<TID, L> {
     pub fn sample<S: Sampler<TID, L>>(&mut self, sampler: &mut S) -> &mut Self {
         sampler.sample(self)
     }
+
+    pub fn sample_token<S: SampleToken<TID, L>>(&mut self, sampler: &mut S) -> Option<TID> {
+        sampler.sample_token(self)
+    }
 }
 
 pub trait Sampler<TID: PrimInt, L: Float> {
     fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L>;
+}
+
+pub trait SampleToken<TID: PrimInt, L: Float> {
+    fn sample_token(&mut self, logits: &mut Logits<TID, L>) -> Option<TID>;
 }

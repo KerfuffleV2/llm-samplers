@@ -1,6 +1,7 @@
 pub mod flat_bias;
 pub mod freqpresence;
 pub mod greedy;
+pub mod mirostat;
 pub mod rand_distrib;
 pub mod repetition;
 pub mod tail_free;

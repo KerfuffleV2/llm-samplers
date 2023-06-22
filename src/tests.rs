@@ -80,9 +80,10 @@ fn validate_eq(
 }
 
 fn do_test_greedy(it: impl Iterator<Item = f32>, expected: Option<u32>) {
-    let mut g = SampleGreedy::new();
-    Logits::from(it).sample(&mut g);
-    assert_eq!(g.get_token_id(), expected);
+    assert_eq!(
+        Logits::from(it).sample_token(&mut SampleGreedy::new()),
+        expected
+    );
 }
 
 #[test]
@@ -198,10 +199,15 @@ fn test_flat_bias() {
 
 #[test]
 fn test_rand_distrib() {
-    let mut sampler =
-        RandDistribSampler::<u32, rand::rngs::StdRng>::new(Box::new(RngBox::new(Some(123))));
-    Logits::from([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln())).sample(&mut sampler);
-    assert_eq!(sampler.get_token_id(), Some(0));
-    Logits::from([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln())).sample(&mut sampler);
-    assert_eq!(sampler.get_token_id(), Some(2));
+    let mut sampler = RandDistribSampler::<u32, rand::rngs::StdRng>::new(Box::new(
+        RngBox::new_seedable(Some(123)),
+    ));
+    assert_eq!(
+        Logits::from([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(0)
+    );
+    assert_eq!(
+        Logits::from([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(2)
+    );
 }

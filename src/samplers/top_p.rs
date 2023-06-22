@@ -29,8 +29,8 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTopP<L> {
                 .enumerate()
                 .try_fold(logits.len(), |last_idx, (idx, logit)| {
                     cum_sum = cum_sum + logit.prob;
-                    if cum_sum > p && idx >= min_keep {
-                        return Break(idx);
+                    if cum_sum >= p && idx + 1 >= min_keep {
+                        return Break(idx + 1);
                     }
                     Continue(last_idx)
                 }) {
