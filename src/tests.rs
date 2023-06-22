@@ -211,3 +211,55 @@ fn test_rand_distrib() {
         Some(2)
     );
 }
+
+#[test]
+fn test_mirostat1() {
+    let mut sampler = SampleMirostat1::<u32, f32, rand::rngs::StdRng>::new(
+        3,
+        5.0,
+        0.1,
+        100,
+        10.0,
+        Box::new(RngBox::new_seedable(Some(123))),
+    );
+    assert_eq!(
+        Logits::from([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(0)
+    );
+    let mut sampler = SampleMirostat1::<u32, f32, rand::rngs::StdRng>::new(
+        3,
+        5.0,
+        0.1,
+        100,
+        10.0,
+        Box::new(RngBox::new_seedable(Some(123))),
+    );
+    assert_eq!(
+        Logits::from([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(2)
+    );
+}
+
+#[test]
+fn test_mirostat2() {
+    let mut sampler = SampleMirostat2::<u32, f32, rand::rngs::StdRng>::new(
+        5.0,
+        0.1,
+        10.0,
+        Box::new(RngBox::new_seedable(Some(123))),
+    );
+    assert_eq!(
+        Logits::from([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(0)
+    );
+    let mut sampler = SampleMirostat2::<u32, f32, rand::rngs::StdRng>::new(
+        5.0,
+        0.1,
+        10.0,
+        Box::new(RngBox::new_seedable(Some(123))),
+    );
+    assert_eq!(
+        Logits::from([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln())).sample_token(&mut sampler),
+        Some(2)
+    );
+}

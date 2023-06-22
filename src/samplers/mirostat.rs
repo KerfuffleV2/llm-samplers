@@ -12,7 +12,7 @@ pub struct SampleMirostat2<TID, L, R> {
     eta: L,
     mu: L,
     token: Option<TID>,
-    rdsampler: RandDistribSampler<TID, R>,
+    rd_sampler: RandDistribSampler<TID, R>,
 }
 
 impl<TID: CanTokenId, L: Float, R: Rng> SampleMirostat2<TID, L, R> {
@@ -26,7 +26,7 @@ impl<TID: CanTokenId, L: Float, R: Rng> SampleMirostat2<TID, L, R> {
             tau,
             eta,
             mu: initial_mu,
-            rdsampler: RandDistribSampler::<TID, R>::new(rng),
+            rd_sampler: RandDistribSampler::<TID, R>::new(rng),
             token: None,
         }
     }
@@ -51,20 +51,17 @@ impl<TID: CanTokenId, R: Rng> Sampler<TID, f32> for SampleMirostat2<TID, f32, R>
             .max(1);
         logits.truncate(new_size);
         logits.softmax();
-        self.rdsampler.sample(logits);
+        self.rd_sampler.sample(logits);
 
-        let tid = if let Some(tid) = self.rdsampler.get_token_id() {
-            tid
-        } else {
-            return logits;
-        };
-        let logit = logits
-            .iter()
-            .find(|l| l.token_id == tid)
-            .expect("Impossible: sample token not in logits?");
+        if let Some(tid) = self.rd_sampler.sample_token(logits) {
+            let logit = logits
+                .iter()
+                .find(|l| l.token_id == tid)
+                .expect("Impossible: sample token not in logits?");
 
-        self.mu -= eta * (-logit.prob.log2() - tau);
-        self.token = Some(tid);
+            self.mu -= eta * (-logit.prob.log2() - tau);
+            self.token = Some(tid);
+        }
         logits
     }
 }
@@ -84,7 +81,7 @@ pub struct SampleMirostat1<TID, L, R> {
     m: usize,
     mu: L,
     token: Option<TID>,
-    rdsampler: RandDistribSampler<TID, R>,
+    rd_sampler: RandDistribSampler<TID, R>,
 }
 
 impl<TID: CanTokenId, L: Float, R: Rng> SampleMirostat1<TID, L, R> {
@@ -102,7 +99,7 @@ impl<TID: CanTokenId, L: Float, R: Rng> SampleMirostat1<TID, L, R> {
             eta,
             m,
             mu: initial_mu,
-            rdsampler: RandDistribSampler::<TID, R>::new(rng),
+            rd_sampler: RandDistribSampler::<TID, R>::new(rng),
             token: None,
         }
     }
@@ -142,18 +139,15 @@ impl<TID: CanTokenId, R: Rng> Sampler<TID, f32> for SampleMirostat1<TID, f32, R>
             as usize;
         logits.sample(&mut SampleTopK::new(k, 1));
 
-        let tid = if let Some(tid) = self.rdsampler.sample_token(logits) {
-            tid
-        } else {
-            return logits;
-        };
-        let logit = logits
-            .iter()
-            .find(|l| l.token_id == tid)
-            .expect("Impossible: sample token not in logits?");
+        if let Some(tid) = self.rd_sampler.sample_token(logits) {
+            let logit = logits
+                .iter()
+                .find(|l| l.token_id == tid)
+                .expect("Impossible: sample token not in logits?");
 
-        self.mu -= eta * (-logit.prob.log2() - tau);
-        self.token = Some(tid);
+            self.mu -= eta * (-logit.prob.log2() - tau);
+            self.token = Some(tid);
+        }
         logits
     }
 }

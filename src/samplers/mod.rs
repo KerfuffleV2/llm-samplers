@@ -12,5 +12,5 @@ pub mod typical;
 
 pub use self::{
     flat_bias::*, freqpresence::*, greedy::*, rand_distrib::*, repetition::*, tail_free::*,
-    temperature::*, top_k::*, top_p::*, typical::*,
+    temperature::*, top_k::*, top_p::*, typical::*, mirostat::*
 };
