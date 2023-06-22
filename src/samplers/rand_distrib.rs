@@ -72,9 +72,7 @@ impl<TID: CanTokenId, R: Rng> Sampler<TID, f32> for RandDistribSampler<TID, R> {
         }
         logits
     }
-}
 
-impl<TID: CanTokenId, R: Rng> SampleToken<TID, f32> for RandDistribSampler<TID, R> {
     fn sample_token(&mut self, logits: &mut Logits<TID, f32>) -> Option<TID> {
         self.sample(logits);
         self.get_token_id()

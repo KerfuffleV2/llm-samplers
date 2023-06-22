@@ -33,9 +33,7 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleGreedy<TID> {
         self.token_id = Some(result.token_id);
         logits
     }
-}
 
-impl<TID: PrimInt + Clone, L: Float> SampleToken<TID, L> for SampleGreedy<TID> {
     fn sample_token(&mut self, logits: &mut Logits<TID, L>) -> Option<TID> {
         self.sample(logits);
         self.get_token_id()

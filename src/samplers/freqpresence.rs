@@ -9,16 +9,23 @@ use crate::types::*;
 pub struct SampleFreqPresence<'a, TID, L> {
     alpha_frequency: L,
     alpha_presence: L,
+    last_n: usize,
     tokens: &'a [TID],
 }
 
 impl<'a, TID: PrimInt, L: Float> SampleFreqPresence<'a, TID, L> {
-    pub fn new(alpha_frequency: L, alpha_presence: L, tokens: &'a [TID]) -> Self {
+    pub fn new(alpha_frequency: L, alpha_presence: L, last_n: usize, tokens: &'a [TID]) -> Self {
         Self {
             alpha_frequency,
             alpha_presence,
+            last_n,
             tokens,
         }
+    }
+
+    pub fn set_tokens(&mut self, tokens: &'a [TID]) -> &mut Self {
+        self.tokens = tokens;
+        self
     }
 }
 
@@ -27,8 +34,14 @@ impl<'slf, TID: PrimInt + Hash, L: Float> Sampler<TID, L> for SampleFreqPresence
         let Self {
             alpha_frequency,
             alpha_presence,
+            last_n,
             tokens,
         } = *self;
+        let tokens = if last_n > tokens.len() {
+            tokens
+        } else {
+            &tokens[tokens.len() - last_n..]
+        };
         let mut counts = HashMap::with_capacity(tokens.len());
         tokens.iter().for_each(|tid| {
             let cnt = counts.entry(tid).or_insert(L::zero());

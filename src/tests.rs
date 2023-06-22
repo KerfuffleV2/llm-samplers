@@ -111,19 +111,19 @@ fn test_repetition() {
     const TER2: &[f32] = &[0.5, 0.5, 0.0, 0.0, 0.0];
 
     test_sampler(
-        &mut SampleRepetition::new(50.0, &[0]),
+        &mut SampleRepetition::new(50.0, 100, &[0]),
         T,
         &[0.25, 0.25, 0.25, 0.25, 0.0],
         validate_sm,
     );
     test_sampler(
-        &mut SampleRepetition::new(50.0, &[0, 1, 2]),
+        &mut SampleRepetition::new(50.0, 100, &[0, 1, 2]),
         T,
         TER2,
         validate_sm,
     );
     test_sampler(
-        &mut SampleRepetition::new(50.0, &[0, 1, 2, 0, 0]),
+        &mut SampleRepetition::new(50.0, 100, &[0, 1, 2, 0, 0]),
         T,
         TER2,
         validate_sm,
@@ -135,19 +135,19 @@ fn test_freq_presence() {
     const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
 
     test_sampler(
-        &mut SampleFreqPresence::new(5.0, 5.0, &[0]),
+        &mut SampleFreqPresence::new(5.0, 5.0, 100, &[0]),
         T,
         &[0.249997, 0.249997, 0.249997, 0.249997, 0.000011],
         validate_sm,
     );
     test_sampler(
-        &mut SampleFreqPresence::new(5.0, 5.0, &[0, 1, 2]),
+        &mut SampleFreqPresence::new(5.0, 5.0, 100, &[0, 1, 2]),
         T,
         &[0.499966, 0.499966, 0.000023, 0.000023, 0.000023],
         validate_sm,
     );
     test_sampler(
-        &mut SampleFreqPresence::new(5.0, 5.0, &[0, 1, 2, 0, 0]),
+        &mut SampleFreqPresence::new(5.0, 5.0, 100, &[0, 1, 2, 0, 0]),
         T,
         &[0.499977, 0.499977, 0.000023, 0.000023, 0.0],
         validate_sm,

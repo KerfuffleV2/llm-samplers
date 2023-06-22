@@ -64,9 +64,7 @@ impl<TID: CanTokenId, R: Rng> Sampler<TID, f32> for SampleMirostat2<TID, f32, R>
         }
         logits
     }
-}
 
-impl<TID: CanTokenId, R: Rng> SampleToken<TID, f32> for SampleMirostat2<TID, f32, R> {
     fn sample_token(&mut self, logits: &mut Logits<TID, f32>) -> Option<TID> {
         self.sample(logits);
         self.token
@@ -150,9 +148,7 @@ impl<TID: CanTokenId, R: Rng> Sampler<TID, f32> for SampleMirostat1<TID, f32, R>
         }
         logits
     }
-}
 
-impl<TID: CanTokenId, R: Rng> SampleToken<TID, f32> for SampleMirostat1<TID, f32, R> {
     fn sample_token(&mut self, logits: &mut Logits<TID, f32>) -> Option<TID> {
         self.sample(logits);
         self.token
