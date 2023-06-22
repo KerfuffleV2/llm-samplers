@@ -6,6 +6,8 @@ Token samplers for large language models, written in Rust!
 
 Extremely early in development, poorly tested. You can look at `src/tests.rs` for some examples of use.
 
+Also a very simple example of using Mirostat with my RWKV project here: https://github.com/KerfuffleV2/smolrsrwkv/blob/60ec3e07b5c9ab14566364eb951f4048ff764e45/smolrwkv-cli/src/main.rs#L189
+
 ## Samplers
 
 Using the term "sampler" here loosely, perhaps it should be renamed in the future. Right now a "sampler"
