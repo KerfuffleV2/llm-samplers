@@ -1,39 +1,38 @@
-use num_traits::{Float, PrimInt};
+use std::sync::{Arc, RwLock};
 
 use crate::types::*;
 
 /// Repetition penalty sampling
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleRepetition<'a, TID, L> {
+#[derive(Debug, Clone)]
+pub struct SampleRepetition<TID, L> {
     penalty: L,
     last_n: usize,
-    tokens: &'a [TID],
+    tokens: Arc<RwLock<Vec<TID>>>,
 }
 
-impl<'a, TID: PrimInt, L: Float> SampleRepetition<'a, TID, L> {
-    pub fn new(penalty: L, last_n: usize, tokens: &'a [TID]) -> Self {
+impl<TID: CanTokenId, L: CanLogit> SampleRepetition<TID, L> {
+    pub fn new(penalty: L, last_n: usize, tokens: Arc<RwLock<Vec<TID>>>) -> Self {
         Self {
             penalty,
             last_n,
             tokens,
         }
     }
-
-    pub fn set_tokens(&mut self, tokens: &'a [TID]) -> &mut Self {
-        self.tokens = tokens;
-        self
-    }
 }
 
-impl<'slf, TID: PrimInt, L: Float> Sampler<TID, L> for SampleRepetition<'slf, TID, L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         let Self {
-            penalty,
-            last_n,
-            tokens,
+            penalty, last_n, ..
         } = *self;
+        let tokens = self.tokens.read().map_err(|e| {
+            SamplerError::InternalError(format!("Couldn't acquire last tokens read lock: {e}"))
+        })?;
         let tokens = if last_n > tokens.len() {
-            tokens
+            &tokens[..]
         } else {
             &tokens[tokens.len() - last_n..]
         };
@@ -47,6 +46,6 @@ impl<'slf, TID: PrimInt, L: Float> Sampler<TID, L> for SampleRepetition<'slf, TI
                     l.logit = l.logit / penalty
                 }
             });
-        logits.set_sorted(false)
+        Ok(logits.set_sorted(false))
     }
 }

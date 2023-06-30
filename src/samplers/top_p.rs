@@ -1,5 +1,3 @@
-use num_traits::{Float, PrimInt};
-
 use crate::types::*;
 
 /// Top-P sampling
@@ -9,18 +7,21 @@ pub struct SampleTopP<T> {
     min_keep: usize,
 }
 
-impl<T: Float> SampleTopP<T> {
+impl<T: CanLogit> SampleTopP<T> {
     pub fn new(p: T, min_keep: usize) -> Self {
         Self { p, min_keep }
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTopP<L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
-        logits.softmax();
+        logits.softmax()?;
 
         let mut cum_sum = L::zero();
         let last_idx =
@@ -38,6 +39,6 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTopP<L> {
                 Break(i) => i,
             };
         logits.truncate(last_idx);
-        logits
+        Ok(logits)
     }
 }

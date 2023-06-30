@@ -1,4 +1,4 @@
-use num_traits::{Float, PrimInt};
+use std::cmp::Ordering;
 
 use crate::types::*;
 
@@ -9,19 +9,22 @@ pub struct SampleTypical<T> {
     min_keep: usize,
 }
 
-impl<T: Float> SampleTypical<T> {
+impl<T: CanLogit> SampleTypical<T> {
     pub fn new(p: T, min_keep: usize) -> Self {
         Self { p, min_keep }
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTypical<L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTypical<L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
         let min_keep = if min_keep == 0 { 0 } else { min_keep - 1 };
-        logits.softmax();
+        logits.softmax()?;
 
         let ent = logits
             .iter()
@@ -31,7 +34,18 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTypical<L> {
             .iter()
             .map(|l| (l.clone(), (-l.prob.ln() - ent).abs()))
             .collect::<Vec<_>>();
-        shifted.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("Arg"));
+        {
+            let mut sort_err = Ok(());
+            shifted.sort_by(|a, b| {
+                a.1.partial_cmp(&b.1).unwrap_or_else(|| {
+                    sort_err = Err(SamplerError::InternalError(String::from(
+                        "Impossible: logit comparison failed?",
+                    )));
+                    Ordering::Less
+                })
+            });
+            sort_err?;
+        }
 
         let mut cum_sum = L::zero();
         let last_idx = match shifted.iter().enumerate().try_fold(
@@ -52,6 +66,6 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTypical<L> {
             .into_iter()
             .take(last_idx)
             .for_each(|(logit, _score)| logits.push(logit));
-        logits
+        Ok(logits)
     }
 }

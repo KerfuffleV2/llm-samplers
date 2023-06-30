@@ -1,5 +1,3 @@
-use num_traits::{Float, PrimInt};
-
 use crate::types::*;
 
 /// Tail free sampling
@@ -9,23 +7,26 @@ pub struct SampleTailFree<T> {
     min_keep: usize,
 }
 
-impl<T: Float> SampleTailFree<T> {
+impl<T: CanLogit> SampleTailFree<T> {
     pub fn new(z: T, min_keep: usize) -> Self {
         Self { z, min_keep }
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTailFree<L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         use std::ops::ControlFlow::*;
 
         let Self { z, min_keep } = *self;
 
         if z >= L::one() || logits.len() < 2 {
-            return logits;
+            return Ok(logits);
         }
 
-        logits.softmax();
+        logits.softmax()?;
 
         let mut fderivs = logits
             .iter()
@@ -39,7 +40,13 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTailFree<L> {
         let mut ssum = L::zero();
 
         while let Some(prob) = fderivs.next() {
-            let sprob = (prob - *fderivs.peek().expect("ohno")).abs();
+            let sprob = (prob
+                - *fderivs.peek().ok_or_else(|| {
+                    SamplerError::InternalError(String::from(
+                        "Impossible: missing next deriv item?",
+                    ))
+                })?)
+            .abs();
             ssum = ssum + sprob;
             sderivs.push(sprob);
             if sderivs.len() == want_sderivs {
@@ -64,6 +71,6 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTailFree<L> {
                 Break(i) => i,
             };
         logits.truncate(last_idx);
-        logits
+        Ok(logits)
     }
 }

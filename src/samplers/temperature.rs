@@ -1,5 +1,3 @@
-use num_traits::{Float, PrimInt};
-
 use crate::types::*;
 
 /// Temperature sampling
@@ -8,16 +6,19 @@ pub struct SampleTemperature<T> {
     temperature: T,
 }
 
-impl<T: Float> SampleTemperature<T> {
+impl<T: CanLogit> SampleTemperature<T> {
     pub fn new(temperature: T) -> Self {
         Self { temperature }
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTemperature<L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTemperature<L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         let temp = self.temperature;
         logits.iter_mut().for_each(|l| l.logit = l.logit / temp);
-        logits
+        Ok(logits)
     }
 }

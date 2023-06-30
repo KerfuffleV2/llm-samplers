@@ -1,20 +1,27 @@
-use std::{collections::HashMap, hash::Hash};
-
-use num_traits::{Float, PrimInt};
+use std::{
+    collections::HashMap,
+    hash::Hash,
+    sync::{Arc, RwLock},
+};
 
 use crate::types::*;
 
 /// Presence and frequency penalty sampling
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleFreqPresence<'a, TID, L> {
+#[derive(Debug, Clone)]
+pub struct SampleFreqPresence<TID, L> {
     alpha_frequency: L,
     alpha_presence: L,
     last_n: usize,
-    tokens: &'a [TID],
+    tokens: Arc<RwLock<Vec<TID>>>,
 }
 
-impl<'a, TID: PrimInt, L: Float> SampleFreqPresence<'a, TID, L> {
-    pub fn new(alpha_frequency: L, alpha_presence: L, last_n: usize, tokens: &'a [TID]) -> Self {
+impl<TID: CanTokenId, L: CanLogit> SampleFreqPresence<TID, L> {
+    pub fn new(
+        alpha_frequency: L,
+        alpha_presence: L,
+        last_n: usize,
+        tokens: Arc<RwLock<Vec<TID>>>,
+    ) -> Self {
         Self {
             alpha_frequency,
             alpha_presence,
@@ -22,23 +29,24 @@ impl<'a, TID: PrimInt, L: Float> SampleFreqPresence<'a, TID, L> {
             tokens,
         }
     }
-
-    pub fn set_tokens(&mut self, tokens: &'a [TID]) -> &mut Self {
-        self.tokens = tokens;
-        self
-    }
 }
 
-impl<'slf, TID: PrimInt + Hash, L: Float> Sampler<TID, L> for SampleFreqPresence<'slf, TID, L> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence<TID, L> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         let Self {
             alpha_frequency,
             alpha_presence,
             last_n,
-            tokens,
+            ..
         } = *self;
+        let tokens = self.tokens.read().map_err(|e| {
+            SamplerError::InternalError(format!("Couldn't acquire last tokens read lock: {e}"))
+        })?;
         let tokens = if last_n > tokens.len() {
-            tokens
+            &tokens[..]
         } else {
             &tokens[tokens.len() - last_n..]
         };
@@ -59,6 +67,6 @@ impl<'slf, TID: PrimInt + Hash, L: Float> Sampler<TID, L> for SampleFreqPresence
                         } * alpha_presence);
             }
         });
-        logits.set_sorted(false)
+        Ok(logits.set_sorted(false))
     }
 }
