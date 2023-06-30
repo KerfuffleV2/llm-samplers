@@ -1,5 +1,3 @@
-use num_traits::{Float, PrimInt};
-
 use crate::types::*;
 
 /// Top-K sampling
@@ -15,10 +13,16 @@ impl SampleTopK {
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleTopK {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopK {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         let k = self.k.max(self.min_keep).min(logits.len());
-        logits.ensure_sorted().truncate(k);
         logits
+            .ensure_sorted()
+            .map_err(SamplerError::LogitsError)?
+            .truncate(k);
+        Ok(logits)
     }
 }

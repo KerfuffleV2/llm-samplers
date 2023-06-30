@@ -1,5 +1,3 @@
-use num_traits::{Float, PrimInt};
-
 use crate::types::*;
 
 /// Greedy sampling
@@ -18,11 +16,14 @@ impl<TID: Clone> SampleGreedy<TID> {
     }
 }
 
-impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleGreedy<TID> {
-    fn sample<'a>(&mut self, logits: &'a mut Logits<TID, L>) -> &'a mut Logits<TID, L> {
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
+    fn sample<'a>(
+        &mut self,
+        logits: &'a mut Logits<TID, L>,
+    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         self.token_id = None;
         if logits.is_empty() {
-            return logits;
+            return Ok(logits);
         }
         let mut result = logits[0].clone();
         logits.iter().skip(1).for_each(|l| {
@@ -31,11 +32,10 @@ impl<TID: PrimInt, L: Float> Sampler<TID, L> for SampleGreedy<TID> {
             }
         });
         self.token_id = Some(result.token_id);
-        logits
+        Ok(logits)
     }
 
-    fn sample_token(&mut self, logits: &mut Logits<TID, L>) -> Option<TID> {
-        self.sample(logits);
-        self.get_token_id()
+    fn sampled_token_id(&self) -> Option<TID> {
+        self.token_id
     }
 }
