@@ -1,6 +1,13 @@
 use crate::types::*;
 
-/// Greedy sampling
+/// # Greedy sampling
+/// Selects the token with the highest logit value.
+///
+/// **Properties**:
+/// - Selects a token
+///
+/// **Parameters**:
+/// - (none)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct SampleGreedy<TID> {
     token_id: Option<TID>,
@@ -16,9 +23,18 @@ impl<TID: Clone> SampleGreedy<TID> {
     }
 }
 
+impl<TID> std::ops::Deref for SampleGreedy<TID> {
+    type Target = Option<TID>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.token_id
+    }
+}
+
 impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
     fn sample<'a>(
         &mut self,
+        _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         self.token_id = None;

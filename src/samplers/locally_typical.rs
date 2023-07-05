@@ -2,22 +2,51 @@ use std::cmp::Ordering;
 
 use crate::types::*;
 
-/// Typical sampling
+// FIXME: Complete documentation.
+/// # Locally typical sampling
+///
+/// **Properties**:
+/// - Modifies logits
+/// - Filters logits
+///
+/// **Parameters**:
+/// - `min_keep`: Minimum number of entries to keep. (default: `1`)
+/// - `p`: TBD. (default: `1.0`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTypical<T> {
-    p: T,
+pub struct SampleLocallyTypical<L> {
+    p: L,
     min_keep: usize,
 }
 
-impl<T: CanLogit> SampleTypical<T> {
-    pub fn new(p: T, min_keep: usize) -> Self {
-        Self { p, min_keep }
+impl<L: CanLogit> Default for SampleLocallyTypical<L> {
+    fn default() -> Self {
+        Self {
+            p: L::one(),
+            min_keep: 1,
+        }
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTypical<L> {
+impl<L: CanLogit> SampleLocallyTypical<L> {
+    pub fn new(p: L, min_keep: usize) -> Self {
+        Self { p, min_keep }
+    }
+
+    pub fn min_keep(mut self, val: usize) -> Self {
+        self.min_keep = val;
+        self
+    }
+
+    pub fn p(mut self, val: L) -> Self {
+        self.p = val;
+        self
+    }
+}
+
+impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
     fn sample<'a>(
         &mut self,
+        _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         use std::ops::ControlFlow::*;

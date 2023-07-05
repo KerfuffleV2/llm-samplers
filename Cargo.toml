@@ -1,18 +1,15 @@
 [package]
 name = "llm-samplers"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 description = "Token samplers for large language models"
-repository = "https://github.com/KerfuffleV2/rusty-ggml"
+repository = "https://github.com/KerfuffleV2/llm-samplers"
 keywords = ["deep-learning", "machine-learning", "ml", "sampler"]
 license = "MIT"
 resolver = "2"
-
-[features]
-default = ["rand"]
 
 [dependencies]
 num-traits = "0.2"
 thiserror = "1"
 anyhow = "1"
-rand = { version = "0.8", optional = true }
+rand = "0.8"

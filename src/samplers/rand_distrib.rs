@@ -1,24 +1,30 @@
-use rand::{
-    distributions::{Distribution, WeightedIndex},
-    Rng,
-};
+use std::fmt::Debug;
 
-use crate::{rand::*, types::*};
+use rand::distributions::{Distribution, WeightedIndex};
 
-type WithUsizeRng<R> = dyn WithRng<Rng = R, Output = usize> + Send + Sync;
+use crate::types::*;
 
-/// Random distribution sampling
-pub struct RandDistribSampler<TID, R> {
-    rng: Box<WithUsizeRng<R>>,
+/// # Random distribution sampling
+/// A fancy way of saying the sampler selects a token
+/// based on the probabilities. For example, if token X
+/// has twice the probability value of token Y then we
+/// can say token X will be twice as likely to be randomly
+/// selected by this sampler.
+///
+/// **Properties**:
+/// - Modifies logits
+/// - Selects a token
+///
+/// **Parameters**:
+/// - (none)
+#[derive(Debug, Default)]
+pub struct SampleRandDistrib<TID> {
     token_id: Option<TID>,
 }
 
-impl<TID: CanTokenId, R: Rng> RandDistribSampler<TID, R> {
-    pub fn new(rng: Box<WithUsizeRng<R>>) -> Self {
-        Self {
-            token_id: None,
-            rng,
-        }
+impl<TID: CanTokenId> SampleRandDistrib<TID> {
+    pub fn new() -> Self {
+        Self { token_id: None }
     }
 
     pub fn get_token_id(&self) -> Option<TID> {
@@ -27,9 +33,10 @@ impl<TID: CanTokenId, R: Rng> RandDistribSampler<TID, R> {
 }
 
 // FIXME: Support logit types other than f32?
-impl<TID: CanTokenId, R: Rng + Send + Sync> Sampler<TID, f32> for RandDistribSampler<TID, R> {
+impl<TID: CanTokenId> Sampler<TID, f32> for SampleRandDistrib<TID> {
     fn sample<'a>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, f32>,
     ) -> Result<&'a mut Logits<TID, f32>, SamplerError> {
         self.token_id = None;
@@ -39,7 +46,9 @@ impl<TID: CanTokenId, R: Rng + Send + Sync> Sampler<TID, f32> for RandDistribSam
         logits.softmax()?;
         let dist = WeightedIndex::new(logits.iter().map(|l| l.prob))
             .map_err(SamplerError::RandWeightedError)?;
-        self.token_id = Some(logits[self.rng.with_rng(&mut |r| dist.sample(r))].token_id);
+        res.with_rng_mut(&mut |r| {
+            self.token_id = Some(logits[dist.sample(r)].token_id);
+        })?;
         Ok(logits)
     }
 
