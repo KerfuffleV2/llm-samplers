@@ -1,4 +1,8 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use num_traits::{Float, FromPrimitive, PrimInt, ToPrimitive};
 use thiserror::Error;
@@ -10,16 +14,18 @@ pub enum SamplerError {
     /// General internal error type.
     InternalError(String),
 
+    #[error("missing resource error: {0}")]
+    /// Missing resource error type.
+    MissingResource(String),
+
     #[error("logits error: {0}")]
     /// Container for errors that occured while processing logits.
     LogitsError(LogitsError),
 
-    #[cfg(feature = "rand")]
     #[error("rand error: {0}")]
     /// RNG-related errors
     RandError(rand::Error),
 
-    #[cfg(feature = "rand")]
     #[error("rand weights error: {0}")]
     /// RNG weights-related errors
     RandWeightedError(rand::distributions::WeightedError),
@@ -44,14 +50,20 @@ impl From<LogitsError> for SamplerError {
 }
 
 /// Types that can be a token id implement this.
-pub trait CanTokenId: PrimInt + FromPrimitive + ToPrimitive + Send + Sync {}
+pub trait CanTokenId:
+    PrimInt + FromPrimitive + ToPrimitive + Debug + Clone + Copy + Send + Sync
+{
+}
 
-impl<T: PrimInt + FromPrimitive + ToPrimitive + Send + Sync> CanTokenId for T {}
+impl<T: PrimInt + FromPrimitive + ToPrimitive + Debug + Clone + Copy + Send + Sync> CanTokenId
+    for T
+{
+}
 
 /// Types that can be a logit implement this.
-pub trait CanLogit: Float + Send + Sync {}
+pub trait CanLogit: Float + FromPrimitive + Debug + Clone + Send + Sync {}
 
-impl<T: Float + Send + Sync> CanLogit for T {}
+impl<T: Float + FromPrimitive + Debug + Clone + Send + Sync> CanLogit for T {}
 
 #[derive(Debug, Clone, PartialEq)]
 /// An individual logit with some additional metadata for use by the samplers.
@@ -171,25 +183,33 @@ impl<TID: CanTokenId, L: CanLogit> Logits<TID, L> {
     /// Convenience method
     pub fn sample<S: Sampler<TID, L>>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         sampler: &mut S,
     ) -> Result<&mut Self, SamplerError> {
-        sampler.sample(self)
+        sampler.sample(res, self)
     }
 
     /// Convenience method
     pub fn sample_token<S: Sampler<TID, L>>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         sampler: &mut S,
     ) -> Result<Option<TID>, SamplerError> {
-        sampler.sample_token(self)
+        sampler.sample_token(res, self)
     }
 }
 
 /// The main sampler trait.
-pub trait Sampler<TID, L>: Send + Sync {
+pub trait Sampler<TID, L>: Debug + Send + Sync {
     /// Runs the [Sampler]. Depending on the type of [Sampler], this may produce a token id.
+    // fn sample<'a>(
+    //     &mut self,
+    //     logits: &'a mut Logits<TID, L>,
+    // ) -> Result<&'a mut Logits<TID, L>, SamplerError>;
+
     fn sample<'a>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>, SamplerError>;
 
@@ -204,13 +224,17 @@ pub trait Sampler<TID, L>: Send + Sync {
     ///
     /// A default implementation is provided which just calls [Sampler::sample] followed by
     /// [Sampler::sampled_token_id()].
-    fn sample_token(&mut self, logits: &mut Logits<TID, L>) -> Result<Option<TID>, SamplerError> {
-        let _ = self.sample(logits)?;
+    fn sample_token(
+        &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
+        logits: &mut Logits<TID, L>,
+    ) -> Result<Option<TID>, SamplerError> {
+        let _ = self.sample(res, logits)?;
         Ok(self.sampled_token_id())
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 /// A list of [Sampler]s that can be run in sequence. It implements `Sampler`
 /// so you can stick build samplers as modular components. A typical use case would
 /// be to have several filtering samplers and then a token-picking sampler as the last
@@ -228,12 +252,6 @@ impl<TID: CanTokenId, L: CanLogit> SamplerChain<TID, L> {
         }
     }
 
-    // pub fn add_sampler_boxed(&mut self, sampler: Box<dyn Sampler<TID, L>>) -> &mut Self {
-    //     self.token = None;
-    //     self.samplers.push(sampler);
-    //     self
-    // }
-
     pub fn push_sampler(
         &mut self,
         sampler: impl Sampler<TID, L> + Send + Sync + 'static,
@@ -247,13 +265,14 @@ impl<TID: CanTokenId, L: CanLogit> SamplerChain<TID, L> {
 impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SamplerChain<TID, L> {
     fn sample<'a>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         self.token = None;
         self.samplers
             .iter_mut()
             .try_fold(logits, |logits, sampler| {
-                let new_logits = sampler.sample(logits)?;
+                let new_logits = sampler.sample(res, logits)?;
                 self.token = sampler.sampled_token_id();
                 Ok(new_logits)
             })
@@ -261,5 +280,143 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SamplerChain<TID, L> {
 
     fn sampled_token_id(&self) -> Option<TID> {
         self.token
+    }
+}
+
+impl<TID: CanTokenId, L: CanLogit, Rhs> std::ops::AddAssign<Rhs> for SamplerChain<TID, L>
+where
+    Rhs: Sampler<TID, L> + Send + Sync + 'static,
+{
+    fn add_assign(&mut self, rhs: Rhs) {
+        let _ = self.push_sampler(rhs);
+    }
+}
+
+impl<TID: CanTokenId, L: CanLogit, Rhs> std::ops::Add<Rhs> for SamplerChain<TID, L>
+where
+    Rhs: Sampler<TID, L> + Send + Sync + 'static,
+{
+    type Output = Self;
+
+    fn add(mut self, rhs: Rhs) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+/// Trait for providing resources to samplers.
+pub trait HasSamplerResources: Debug {
+    /// The token ID type for the sampler that will use these resources.
+    type TokenId: Send + Sync + Clone;
+
+    /// Allows a sampler to mutably access the RNG (if present).
+    fn with_rng_mut(
+        &mut self,
+        _fun: &mut dyn FnMut(&mut dyn rand::RngCore),
+    ) -> Result<(), SamplerError> {
+        Err(SamplerError::MissingResource("rng".to_string()))
+    }
+
+    /// Allows a sampler to immutably access the last tokens (if present).
+    fn with_last_tokens(&self, _fun: &mut dyn FnMut(&[Self::TokenId])) -> Result<(), SamplerError> {
+        Err(SamplerError::MissingResource("rng".to_string()))
+    }
+
+    /// Allows a sampler to mutably access the last tokens (if present).
+    fn with_last_tokens_mut(
+        &mut self,
+        _fun: &mut dyn FnMut(&mut Vec<Self::TokenId>),
+    ) -> Result<(), SamplerError> {
+        Err(SamplerError::MissingResource("last_tokens".to_string()))
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Empty resource structure for use with samplers that don't require
+/// any resources.
+pub struct NilSamplerResources<TID = u32>(PhantomData<TID>);
+
+impl<TID> Default for NilSamplerResources<TID> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<TID> NilSamplerResources<TID> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<TID: Debug + Send + Sync + Clone> HasSamplerResources for NilSamplerResources<TID> {
+    type TokenId = TID;
+}
+
+impl HasSamplerResources for () {
+    type TokenId = u32;
+}
+
+/// Simple resources that can provide an RNG and/or last tokens to samplers.
+pub struct SimpleSamplerResources<TID = u32> {
+    pub(crate) rng: Option<Box<dyn rand::RngCore + Send + Sync>>,
+
+    pub(crate) last_tokens: Option<Vec<TID>>,
+}
+
+impl<TID: Debug> Debug for SimpleSamplerResources<TID> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SamplerResources")
+            .field("rng", &self.rng.is_some())
+            .field("last_tokens", &self.last_tokens)
+            .finish()
+    }
+}
+
+impl<TID: CanTokenId> SimpleSamplerResources<TID> {
+    pub fn new(
+        rng: Option<Box<dyn rand::RngCore + Send + Sync>>,
+        last_tokens: Option<Vec<TID>>,
+    ) -> Self {
+        Self { rng, last_tokens }
+    }
+}
+
+impl<TID: CanTokenId> HasSamplerResources for SimpleSamplerResources<TID> {
+    type TokenId = TID;
+
+    fn with_rng_mut(
+        &mut self,
+        fun: &mut dyn FnMut(&mut dyn rand::RngCore),
+    ) -> Result<(), SamplerError> {
+        self.rng.as_mut().map_or_else(
+            || Err(SamplerError::MissingResource("rng".to_string())),
+            |rng| {
+                fun(rng);
+                Ok(())
+            },
+        )
+    }
+
+    fn with_last_tokens(&self, fun: &mut dyn FnMut(&[Self::TokenId])) -> Result<(), SamplerError> {
+        self.last_tokens.as_ref().map_or_else(
+            || Err(SamplerError::MissingResource("last_tokens".to_string())),
+            |lt| {
+                fun(lt);
+                Ok(())
+            },
+        )
+    }
+
+    fn with_last_tokens_mut(
+        &mut self,
+        fun: &mut dyn FnMut(&mut Vec<Self::TokenId>),
+    ) -> Result<(), SamplerError> {
+        self.last_tokens.as_mut().map_or_else(
+            || Err(SamplerError::MissingResource("last_tokens".to_string())),
+            |lt| {
+                fun(lt);
+                Ok(())
+            },
+        )
     }
 }

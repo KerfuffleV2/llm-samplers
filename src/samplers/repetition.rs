@@ -1,51 +1,89 @@
-use std::sync::{Arc, RwLock};
+use std::marker::PhantomData;
 
 use crate::types::*;
 
-/// Repetition penalty sampling
+// FIXME: Complete documentation.
+/// # Repetition penalty sampling
+/// The **repetition** penalty appears to apply to a token that has appeared at least
+/// once in the `last_n` tokens. How is this different from presence penalty? Beats me!
+///
+/// **Properties**:
+/// - Modifies logits
+///
+/// **Parameters**:
+/// - `last_n`: Number of last tokens to consider. (default: `64`)
+/// - `repetition_penalty`: Penalty to apply to repeated tokens. (default: `1.1`)
 #[derive(Debug, Clone)]
 pub struct SampleRepetition<TID, L> {
-    penalty: L,
+    repetition_penalty: L,
     last_n: usize,
-    tokens: Arc<RwLock<Vec<TID>>>,
+    marker: PhantomData<TID>,
+}
+
+impl<TID: CanTokenId, L: CanLogit> Default for SampleRepetition<TID, L> {
+    fn default() -> Self {
+        Self {
+            repetition_penalty: L::from(1.1f32).expect("Impossible: Couldn't convert f32 to Float"),
+            last_n: 64,
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<TID: CanTokenId, L: CanLogit> SampleRepetition<TID, L> {
-    pub fn new(penalty: L, last_n: usize, tokens: Arc<RwLock<Vec<TID>>>) -> Self {
+    pub fn new(repetition_penalty: L, last_n: usize) -> Self {
         Self {
-            penalty,
+            repetition_penalty,
             last_n,
-            tokens,
+            marker: PhantomData,
         }
+    }
+
+    pub fn last_n(mut self, val: usize) -> Self {
+        self.last_n = val;
+        self
+    }
+
+    pub fn penalty(mut self, val: L) -> Self {
+        self.repetition_penalty = val;
+        self
     }
 }
 
 impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> {
     fn sample<'a>(
         &mut self,
+        res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
         let Self {
-            penalty, last_n, ..
+            repetition_penalty,
+            last_n,
+            ..
         } = *self;
-        let tokens = self.tokens.read().map_err(|e| {
-            SamplerError::InternalError(format!("Couldn't acquire last tokens read lock: {e}"))
+
+        if logits.is_empty() || last_n == 0 || repetition_penalty == L::zero() {
+            return Ok(logits);
+        }
+
+        res.with_last_tokens(&mut |tokens| {
+            let tokens = if last_n > tokens.len() {
+                tokens
+            } else {
+                &tokens[tokens.len() - last_n..]
+            };
+            logits
+                .iter_mut()
+                .filter(|l| tokens.contains(&l.token_id))
+                .for_each(|l| {
+                    l.logit = if l.logit <= L::zero() {
+                        l.logit * repetition_penalty
+                    } else {
+                        l.logit / repetition_penalty
+                    };
+                });
         })?;
-        let tokens = if last_n > tokens.len() {
-            &tokens[..]
-        } else {
-            &tokens[tokens.len() - last_n..]
-        };
-        logits
-            .iter_mut()
-            .filter(|l| tokens.contains(&l.token_id))
-            .for_each(|l| {
-                if l.logit <= L::zero() {
-                    l.logit = l.logit * penalty
-                } else {
-                    l.logit = l.logit / penalty
-                }
-            });
+
         Ok(logits.set_sorted(false))
     }
 }
