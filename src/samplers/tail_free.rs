@@ -1,4 +1,4 @@
-use crate::types::*;
+use crate::{configure::*, types::*};
 
 /// # Tail free sampling
 ///
@@ -10,9 +10,9 @@ use crate::types::*;
 /// - `min_keep`: Minimum number of entries to keep. (default: `1`)
 /// - `z`: TBD. (default: `1.0`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTailFree<L> {
-    z: L,
-    min_keep: usize,
+pub struct SampleTailFree<L = f32> {
+    pub(crate) z: L,
+    pub(crate) min_keep: usize,
 }
 
 impl<L: CanLogit> Default for SampleTailFree<L> {
@@ -45,7 +45,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
         &mut self,
         _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         use std::ops::ControlFlow::*;
 
         let Self { z, min_keep } = *self;
@@ -101,4 +101,26 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
         logits.truncate(last_idx);
         Ok(logits)
     }
+}
+
+impl<L> ConfigurableSampler<usize, L> for SampleTailFree<L>
+where
+    L: CanLogit + 'static,
+{
+    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
+        SamplerOptionDefinition {
+            key: "z",
+            desc: None,
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.z),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.z),
+        },
+        SamplerOptionDefinition {
+            key: "min_keep",
+            desc: None,
+            typ: SamplerOptionType::UInt,
+            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
+            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
+        },
+    ];
 }

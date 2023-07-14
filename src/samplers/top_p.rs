@@ -1,4 +1,4 @@
-use crate::types::*;
+use crate::{configure::*, types::*};
 
 /// # Top-P sampling
 /// This sampler adds up the token probabilities until the value is
@@ -12,9 +12,9 @@ use crate::types::*;
 /// - `min_keep`: Minimum number of entries to keep. (default: `1`)
 /// - `p`: Target value. (default: `0.9`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTopP<L> {
-    p: L,
-    min_keep: usize,
+pub struct SampleTopP<L = f32> {
+    pub(crate) p: L,
+    pub(crate) min_keep: usize,
 }
 
 impl<L: CanLogit> Default for SampleTopP<L> {
@@ -47,7 +47,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
         &mut self,
         _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
@@ -71,4 +71,26 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
         logits.truncate(last_idx);
         Ok(logits)
     }
+}
+
+impl<L> ConfigurableSampler<usize, L> for SampleTopP<L>
+where
+    L: CanLogit + 'static,
+{
+    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
+        SamplerOptionDefinition {
+            key: "p",
+            desc: None,
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.p),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
+        },
+        SamplerOptionDefinition {
+            key: "min_keep",
+            desc: None,
+            typ: SamplerOptionType::UInt,
+            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
+            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
+        },
+    ];
 }

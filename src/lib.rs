@@ -128,6 +128,15 @@ pub mod samplers;
 /// Types and traits.
 pub mod types;
 
+/// Sampler chains
+mod chain;
+
+/// Sampler resources
+mod resource;
+
+/// Configuring sampler options
+pub mod configure;
+
 #[cfg(test)]
 mod tests;
 
@@ -136,5 +145,11 @@ mod tests;
 /// into your project.
 pub mod prelude {
     #[doc(inline)]
-    pub use crate::{samplers::*, types::*};
+    pub use crate::{
+        chain::*,
+        configure::{ConfigurableSampler, ConfigureSamplerError},
+        resource::*,
+        samplers::*,
+        types::*,
+    };
 }

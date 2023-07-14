@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::types::*;
+use crate::{configure::*, types::*};
 
 // FIXME: Complete documentation.
 /// # Repetition penalty sampling
@@ -14,9 +14,9 @@ use crate::types::*;
 /// - `last_n`: Number of last tokens to consider. (default: `64`)
 /// - `repetition_penalty`: Penalty to apply to repeated tokens. (default: `1.1`)
 #[derive(Debug, Clone)]
-pub struct SampleRepetition<TID, L> {
-    repetition_penalty: L,
-    last_n: usize,
+pub struct SampleRepetition<TID = u32, L = f32> {
+    pub(crate) repetition_penalty: L,
+    pub(crate) last_n: usize,
     marker: PhantomData<TID>,
 }
 
@@ -55,7 +55,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
         &mut self,
         res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         let Self {
             repetition_penalty,
             last_n,
@@ -86,4 +86,27 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
 
         Ok(logits.set_sorted(false))
     }
+}
+
+impl<TID, L> ConfigurableSampler<usize, L> for SampleRepetition<TID, L>
+where
+    TID: CanTokenId + 'static,
+    L: CanLogit + 'static,
+{
+    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
+        SamplerOptionDefinition {
+            key: "penalty",
+            desc: None,
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.repetition_penalty),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.repetition_penalty),
+        },
+        SamplerOptionDefinition {
+            key: "last_n",
+            desc: None,
+            typ: SamplerOptionType::UInt,
+            get: |slf| SamplerOptionValue::UInt(slf.last_n),
+            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),
+        },
+    ];
 }

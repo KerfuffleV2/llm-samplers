@@ -17,8 +17,8 @@ use crate::types::*;
 /// **Parameters**:
 /// - `bias`: A [Vec] of token id and bias value tuples. (default: empty)
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct SampleFlatBias<TID, L> {
-    bias: Vec<(TID, L)>,
+pub struct SampleFlatBias<TID = u32, L = f32> {
+    pub(crate) bias: Vec<(TID, L)>,
 }
 
 impl<TID, L> std::ops::Deref for SampleFlatBias<TID, L> {
@@ -38,9 +38,9 @@ impl<TID, L> std::ops::DerefMut for SampleFlatBias<TID, L> {
 impl<TID: CanTokenId + 'static, L: Float + 'static> SampleFlatBias<TID, L> {
     /// Construct the sampler from from anything that implements
     /// [IntoIterator] for the bias item type.
-    pub fn new<'a, BI: IntoIterator<Item = &'a (TID, L)>>(bi: BI) -> Self {
+    pub fn new<'a, I: IntoIterator<Item = &'a (TID, L)>>(it: I) -> Self {
         Self {
-            bias: Vec::from_iter(bi.into_iter().copied()),
+            bias: Vec::from_iter(it.into_iter().copied()),
         }
     }
 }
@@ -50,7 +50,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleFlatBias<TID, L> {
         &mut self,
         _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         let valid_tid = 0..logits.len();
         self.bias.iter().for_each(|(tid, bv)| {
             if let Some(tid) = tid.to_usize() {
@@ -62,4 +62,12 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleFlatBias<TID, L> {
         });
         Ok(logits)
     }
+}
+
+// FIXME: Find a sane way to implement this for the list of bias items.
+impl<UI, F> crate::configure::ConfigurableSampler<UI, F> for SampleFlatBias<UI, F>
+where
+    UI: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+    F: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+{
 }

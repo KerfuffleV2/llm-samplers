@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
-use crate::types::*;
+use crate::{configure::*, types::*};
 
 /// # Presence and frequency penalty sampling
 /// The **presence** penalty applies to a token that appears at least once in the `last_n` tokens.
@@ -19,10 +19,10 @@ use crate::types::*;
 /// - `frequency_penalty`: Penalty to apply to tokens based on frequency. (default: `0.0`)
 
 #[derive(Debug, Clone)]
-pub struct SampleFreqPresence<TID, L> {
-    frequency_penalty: L,
-    presence_penalty: L,
-    last_n: usize,
+pub struct SampleFreqPresence<TID = u32, L = f32> {
+    pub(crate) frequency_penalty: L,
+    pub(crate) presence_penalty: L,
+    pub(crate) last_n: usize,
     marker: PhantomData<TID>,
 }
 
@@ -68,7 +68,7 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
         &mut self,
         res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         let Self {
             frequency_penalty,
             presence_penalty,
@@ -112,4 +112,34 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
         });
         Ok(logits.set_sorted(false))
     }
+}
+
+impl<TID, L> ConfigurableSampler<usize, L> for SampleFreqPresence<TID, L>
+where
+    TID: CanTokenId + 'static,
+    L: CanLogit + 'static,
+{
+    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
+        SamplerOptionDefinition {
+            key: "frequency_penalty",
+            desc: None,
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.frequency_penalty),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.frequency_penalty),
+        },
+        SamplerOptionDefinition {
+            key: "presence_penalty",
+            desc: None,
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.presence_penalty),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.presence_penalty),
+        },
+        SamplerOptionDefinition {
+            key: "last_n",
+            desc: None,
+            typ: SamplerOptionType::UInt,
+            get: |slf| SamplerOptionValue::UInt(slf.last_n),
+            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),
+        },
+    ];
 }

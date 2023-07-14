@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use rand::distributions::{Distribution, WeightedIndex};
+use rand::distributions::{uniform::SampleUniform, Distribution, WeightedIndex};
 
 use crate::types::*;
 
@@ -18,7 +18,7 @@ use crate::types::*;
 /// **Parameters**:
 /// - (none)
 #[derive(Debug, Default)]
-pub struct SampleRandDistrib<TID> {
+pub struct SampleRandDistrib<TID = u32> {
     token_id: Option<TID>,
 }
 
@@ -26,19 +26,18 @@ impl<TID: CanTokenId> SampleRandDistrib<TID> {
     pub fn new() -> Self {
         Self { token_id: None }
     }
-
-    pub fn get_token_id(&self) -> Option<TID> {
-        self.token_id
-    }
 }
 
-// FIXME: Support logit types other than f32?
-impl<TID: CanTokenId> Sampler<TID, f32> for SampleRandDistrib<TID> {
+impl<TID, L> Sampler<TID, L> for SampleRandDistrib<TID>
+where
+    TID: CanTokenId,
+    L: CanLogit + SampleUniform + Default + for<'a> std::ops::AddAssign<&'a L>,
+{
     fn sample<'a>(
         &mut self,
         res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, f32>,
-    ) -> Result<&'a mut Logits<TID, f32>, SamplerError> {
+        logits: &'a mut Logits<TID, L>,
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         self.token_id = None;
         if logits.is_empty() {
             return Ok(logits);
@@ -53,6 +52,13 @@ impl<TID: CanTokenId> Sampler<TID, f32> for SampleRandDistrib<TID> {
     }
 
     fn sampled_token_id(&self) -> Option<TID> {
-        self.get_token_id()
+        self.token_id
     }
+}
+
+impl<UI, F> crate::configure::ConfigurableSampler<UI, F> for SampleRandDistrib<UI>
+where
+    UI: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+    F: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+{
 }
