@@ -10,10 +10,6 @@ use crate::{
     types::*,
 };
 
-fn f32tofloat<L: Float>(val: f32) -> L {
-    L::from(val).expect("Impossible: Can't convert f32 to Float")
-}
-
 /// # Mirostat V1 sampling
 ///
 /// *Note*: The sampler does have a default implementation, however
@@ -30,7 +26,7 @@ fn f32tofloat<L: Float>(val: f32) -> L {
 /// - `tau`: Target entropy. (default: `5.0`)
 /// - `m`: Unknown. Can be set manually after construction. (default: `100`)
 /// - `mu`: Current learning state. Can be set manually after construction. (default: `tau * 2`)
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct SampleMirostat1<TID = u32, L = f32> {
     pub(crate) n_vocab: usize,
     pub(crate) m: usize,
@@ -39,6 +35,23 @@ pub struct SampleMirostat1<TID = u32, L = f32> {
     pub(crate) mu: L,
     pub(crate) token: Option<TID>,
     rd_sampler: SampleRandDistrib<TID>,
+}
+
+impl<TID: CanTokenId, L: Float> Default for SampleMirostat1<TID, L> {
+    fn default() -> Self {
+        let five = L::one() + L::one() + L::one() + L::one() + L::one();
+        let ten = five * (L::one() + L::one());
+
+        Self {
+            m: 100,
+            eta: L::one() / ten,
+            tau: five,
+            mu: ten,
+            token: None,
+            rd_sampler: SampleRandDistrib::new(),
+            n_vocab: 0,
+        }
+    }
 }
 
 impl<TID: CanTokenId, L: Float> SampleMirostat1<TID, L> {
@@ -216,7 +229,7 @@ where
 /// - `eta`: Learning rate. (default: `0.1`)
 /// - `tau`: Target entropy. (default: `5.0`)
 /// - `mu`: Current learning state. Can be set manually after construction. (default: `tau * 2`)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SampleMirostat2<TID = u32, L = f32> {
     pub(crate) tau: L,
     pub(crate) eta: L,
@@ -227,12 +240,15 @@ pub struct SampleMirostat2<TID = u32, L = f32> {
 
 impl<TID: CanTokenId, L: Float> Default for SampleMirostat2<TID, L> {
     fn default() -> Self {
+        let five = L::one() + L::one() + L::one() + L::one() + L::one();
+        let ten = five * (L::one() + L::one());
+
         Self {
-            tau: f32tofloat(5.0),
-            eta: f32tofloat(0.1),
-            mu: f32tofloat(10.0),
+            eta: L::one() / ten,
+            tau: five,
+            mu: ten,
             token: None,
-            rd_sampler: SampleRandDistrib::<TID>::new(),
+            rd_sampler: SampleRandDistrib::new(),
         }
     }
 }

@@ -1,6 +1,9 @@
 use num_traits::Float;
 
-use crate::types::*;
+use crate::{
+    configure::{ConfigurableNumValue, ConfigurableSampler},
+    types::*,
+};
 
 /// # Flat bias sampling
 /// Used to bias specific tokens by either increasing or decreasing their probability.
@@ -65,9 +68,9 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleFlatBias<TID, L> {
 }
 
 // FIXME: Find a sane way to implement this for the list of bias items.
-impl<UI, F> crate::configure::ConfigurableSampler<UI, F> for SampleFlatBias<UI, F>
+impl<UI, F> ConfigurableSampler<UI, F> for SampleFlatBias<UI, F>
 where
-    UI: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
-    F: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
 {
 }

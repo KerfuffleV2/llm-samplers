@@ -25,10 +25,13 @@ use crate::types::*;
 pub enum SamplerOptionValue<'a, UI = u64, F = f64> {
     /// Unsigned integer value.
     UInt(UI),
+
     /// Signed float value.
     Float(F),
+
     /// Boolean value.
     Bool(bool),
+
     /// String value.
     String(Cow<'a, str>),
 }
@@ -40,10 +43,13 @@ pub enum SamplerOptionValue<'a, UI = u64, F = f64> {
 pub enum SamplerOptionValueMut<'a, UI, F> {
     /// Mutable reference to an unsigned integer value.
     UInt(&'a mut UI),
+
     /// Mutable reference to a signed float value.
     Float(&'a mut F),
+
     /// Mutable reference to a boolean value.
     Bool(&'a mut bool),
+
     /// Mutable reference to a string value.
     String(&'a mut Cow<'static, str>),
 }
@@ -53,10 +59,13 @@ pub enum SamplerOptionValueMut<'a, UI, F> {
 pub enum SamplerOptionType {
     /// Unsigned integer value.
     UInt,
+
     /// Signed float value.
     Float,
+
     /// Boolean value.
     Bool,
+
     /// String value.
     String,
 }
@@ -147,6 +156,10 @@ pub struct SamplerOptionDefinition<T, UI, F> {
     pub get_mut: SamplerOptionMutRefAccessor<T, UI, F>,
 }
 
+/// Numeric values that can be used for configuring samplers.
+pub trait ConfigurableNumValue: 'static + Copy + NumCast + FromPrimitive {}
+impl<T> ConfigurableNumValue for T where T: 'static + Copy + NumCast + FromPrimitive {}
+
 /// Configurable samplers implement this trait. "Configurable" means
 /// they allow access to their their options by key/type and allow configuration
 /// based on descriptions.
@@ -154,11 +167,10 @@ pub struct SamplerOptionDefinition<T, UI, F> {
 /// There are default implementations for for all the methods, so in the general
 /// case you will only need to implement the `OPTIONS` constant with the option
 /// definitions.
-pub trait ConfigurableSampler<UI = u32, F = f32>
+pub trait ConfigurableSampler<UI = u32, F = f32>: 'static + Sized
 where
-    Self: 'static + Sized,
-    UI: 'static + Copy + NumCast + FromPrimitive,
-    F: 'static + Copy + NumCast + FromPrimitive,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
 {
     /// Defines the options the sampler supports using for configuration.
     const OPTIONS: &'static [SamplerOptionDefinition<Self, UI, F>] = &[];
@@ -219,8 +231,13 @@ where
     ///
     /// Values in this default implementation cannot contain `=` or `:`
     /// and whitespace at the beginning and end of parts are stripped.
-    fn configure_from_str(&mut self, s: &str) -> Result<&mut Self> {
-        configurable_sampler::configure_from_str(self, s)
+    fn configure(mut self, s: &str) -> Result<Self> {
+        self.configure_ref(s)?;
+        Ok(self)
+    }
+
+    fn configure_ref<'a>(&'a mut self, s: &str) -> Result<&'a mut Self> {
+        configurable_sampler::configure_ref(self, s)
     }
 }
 
@@ -239,9 +256,9 @@ pub mod configurable_sampler {
         mut val: SamplerOptionValue,
     ) -> Result<&'a mut CS>
     where
-        CS: ConfigurableSampler<UI, F> + 'static + Sized,
-        UI: 'static + Copy + NumCast + FromPrimitive,
-        F: 'static + Copy + NumCast + FromPrimitive,
+        CS: ConfigurableSampler<UI, F>,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
     {
         let key = key.trim();
         let optidx = slf.find_option_definition(key)?;
@@ -271,9 +288,9 @@ pub mod configurable_sampler {
 
     pub fn get_option<'a, CS, UI, F>(slf: &'a CS, key: &str) -> Result<SamplerOptionValue<'a>>
     where
-        CS: ConfigurableSampler<UI, F> + 'static + Sized,
-        UI: 'static + Copy + NumCast + FromPrimitive,
-        F: 'static + Copy + NumCast + FromPrimitive,
+        CS: ConfigurableSampler<UI, F>,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
     {
         let key = key.trim();
         let optdef = &CS::OPTIONS[slf.find_option_definition(key.trim())?];
@@ -294,13 +311,19 @@ pub mod configurable_sampler {
 
     pub fn find_option_definition<CS, UI, F>(key: &str) -> Result<usize>
     where
-        CS: ConfigurableSampler<UI, F> + 'static + Sized,
-        UI: 'static + Copy + NumCast + FromPrimitive,
-        F: 'static + Copy + NumCast + FromPrimitive,
+        CS: ConfigurableSampler<UI, F>,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
     {
         let opts = &CS::OPTIONS;
-        if key.is_empty() && opts.len() == 1 {
-            return Ok(0);
+        if key.is_empty() {
+            if opts.len() == 1 {
+                return Ok(0);
+            } else {
+                Err(ConfigureSamplerError::AmbiguousKey(
+                    "<unspecified>".to_string(),
+                ))?
+            };
         }
 
         let mut it = opts
@@ -323,11 +346,11 @@ pub mod configurable_sampler {
         Ok(optdef)
     }
 
-    pub fn configure_from_str<'a, CS, UI, F>(slf: &'a mut CS, s: &str) -> Result<&'a mut CS>
+    pub fn configure_ref<'a, CS, UI, F>(slf: &'a mut CS, s: &str) -> Result<&'a mut CS>
     where
-        CS: ConfigurableSampler<UI, F> + 'static + Sized,
-        UI: 'static + Copy + NumCast + FromPrimitive,
-        F: 'static + Copy + NumCast + FromPrimitive,
+        CS: ConfigurableSampler<UI, F>,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
     {
         s.trim()
             .split(':')

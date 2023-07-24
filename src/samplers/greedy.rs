@@ -1,4 +1,7 @@
-use crate::types::*;
+use crate::{
+    configure::{ConfigurableNumValue, ConfigurableSampler},
+    types::*,
+};
 
 /// # Greedy sampling
 /// Selects the token with the highest logit value.
@@ -56,9 +59,9 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
     }
 }
 
-impl<UI, F> crate::configure::ConfigurableSampler<UI, F> for SampleGreedy<F>
+impl<UI, F> ConfigurableSampler<UI, F> for SampleGreedy<F>
 where
-    UI: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
-    F: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
 {
 }

@@ -2,7 +2,10 @@ use std::fmt::Debug;
 
 use rand::distributions::{uniform::SampleUniform, Distribution, WeightedIndex};
 
-use crate::types::*;
+use crate::{
+    configure::{ConfigurableNumValue, ConfigurableSampler},
+    types::*,
+};
 
 /// # Random distribution sampling
 /// A fancy way of saying the sampler selects a token
@@ -17,7 +20,7 @@ use crate::types::*;
 ///
 /// **Parameters**:
 /// - (none)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SampleRandDistrib<TID = u32> {
     token_id: Option<TID>,
 }
@@ -56,9 +59,9 @@ where
     }
 }
 
-impl<UI, F> crate::configure::ConfigurableSampler<UI, F> for SampleRandDistrib<UI>
+impl<UI, F> ConfigurableSampler<UI, F> for SampleRandDistrib<UI>
 where
-    UI: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
-    F: 'static + Copy + num_traits::NumCast + num_traits::FromPrimitive,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
 {
 }
