@@ -103,8 +103,8 @@ fn test_chain1() -> anyhow::Result<()> {
     let mut logits = Logits::try_from_iter(T1.iter().copied())?;
 
     let mut sc = SamplerChain::<u32, f32>::new()
-        + SampleFlatBias::new(&[(3, f32::NEG_INFINITY)])
-        + SampleFlatBias::new(&[(2, f32::NEG_INFINITY)])
+        + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
+        + SampleFlatBias::new([(2, f32::NEG_INFINITY)])
         + SampleGreedy::new();
 
     assert_eq!(sc.sample_token(&mut res, &mut logits)?, Some(1));
@@ -122,7 +122,7 @@ fn test_chain2() -> Result<()> {
     let mut logits2 = logits.clone();
 
     let mut sc = SamplerChain::<u32, f32>::new()
-        + SampleFlatBias::new(&[(3, f32::NEG_INFINITY)])
+        + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
         + SampleRepetition::new(1.1, 64)
         + SampleFreqPresence::new(0.05, 0.1, 64)
         + SampleTemperature::new(0.8)
@@ -331,14 +331,14 @@ mod sampler {
 
         test_sampler_raw(
             &mut res,
-            &mut SampleFlatBias::new(&[(0, f32::NEG_INFINITY)]),
+            &mut SampleFlatBias::new([(0, f32::NEG_INFINITY)]),
             T,
             &[f32::NEG_INFINITY, 0.15, 0.2, 0.25, 0.3],
             validate_eq,
         );
         test_sampler_raw(
             &mut res,
-            &mut SampleFlatBias::new(&[(3, f32::NEG_INFINITY)]),
+            &mut SampleFlatBias::new([(3, f32::NEG_INFINITY)]),
             T,
             &[0.1, 0.15, 0.2, f32::NEG_INFINITY, 0.3],
             validate_eq,

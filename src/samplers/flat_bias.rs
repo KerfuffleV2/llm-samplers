@@ -41,9 +41,9 @@ impl<TID, L> std::ops::DerefMut for SampleFlatBias<TID, L> {
 impl<TID: CanTokenId + 'static, L: Float + 'static> SampleFlatBias<TID, L> {
     /// Construct the sampler from from anything that implements
     /// [IntoIterator] for the bias item type.
-    pub fn new<'a, I: IntoIterator<Item = &'a (TID, L)>>(it: I) -> Self {
+    pub fn new<I: IntoIterator<Item = (TID, L)>>(it: I) -> Self {
         Self {
-            bias: Vec::from_iter(it.into_iter().copied()),
+            bias: Vec::from_iter(it.into_iter()),
         }
     }
 }
