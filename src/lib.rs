@@ -22,7 +22,7 @@
 //!     // Demonstrating the different ways you can build a SamplerChain.
 //!     // These are all equivalent.
 //!     let mut sc = SamplerChain::new()
-//!         + SampleFlatBias::new(&[(3, f32::NEG_INFINITY)]);
+//!         + SampleFlatBias::new([(3, f32::NEG_INFINITY)]);
 //!     sc += SampleTemperature::new(0.8);
 //!     sc.push_sampler(SampleGreedy::new());
 //!
@@ -66,7 +66,7 @@
 //!     // SamplerChain with u32 token id type and f32 logit type.
 //!     let mut sc = SamplerChain::<u32, f32>::new()
 //!         // Bias logits (this example sets bias for token id 3 to -inf)
-//!         + SampleFlatBias::new(&[(3, f32::NEG_INFINITY)])
+//!         + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
 //!         // Apply a repetition penalty.
 //!         + SampleRepetition::new(1.1, 64)
 //!         // Apply frequency and presence penalties.
@@ -128,6 +128,15 @@ pub mod samplers;
 /// Types and traits.
 pub mod types;
 
+/// Sampler chains
+mod chain;
+
+/// Sampler resources
+mod resource;
+
+/// Configuring sampler options
+pub mod configure;
+
 #[cfg(test)]
 mod tests;
 
@@ -136,5 +145,11 @@ mod tests;
 /// into your project.
 pub mod prelude {
     #[doc(inline)]
-    pub use crate::{samplers::*, types::*};
+    pub use crate::{
+        chain::*,
+        configure::{ConfigurableSampler, ConfigureSamplerError},
+        resource::*,
+        samplers::*,
+        types::*,
+    };
 }

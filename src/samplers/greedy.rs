@@ -1,4 +1,7 @@
-use crate::types::*;
+use crate::{
+    configure::{ConfigurableNumValue, ConfigurableSampler},
+    types::*,
+};
 
 /// # Greedy sampling
 /// Selects the token with the highest logit value.
@@ -9,7 +12,7 @@ use crate::types::*;
 /// **Parameters**:
 /// - (none)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct SampleGreedy<TID> {
+pub struct SampleGreedy<TID = u32> {
     token_id: Option<TID>,
 }
 
@@ -36,7 +39,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
         &mut self,
         _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         self.token_id = None;
         if logits.is_empty() {
             return Ok(logits);
@@ -54,4 +57,13 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
     fn sampled_token_id(&self) -> Option<TID> {
         self.token_id
     }
+}
+
+impl<UI, F> ConfigurableSampler<UI, F> for SampleGreedy<F>
+where
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+    const NAME: &'static str = "greedy";
+    const DESC: Option<&'static str> = Some("Selects the token with the highest logit value.");
 }

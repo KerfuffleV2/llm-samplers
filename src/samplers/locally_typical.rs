@@ -1,21 +1,28 @@
 use std::cmp::Ordering;
 
-use crate::types::*;
+use crate::{configure::*, types::*};
 
 // FIXME: Complete documentation.
 /// # Locally typical sampling
+///
+/// An approach to sampling that attempts to maximize natural
+/// and human-like output.
+///
+/// See: <https://arxiv.org/abs/2202.00666>
 ///
 /// **Properties**:
 /// - Modifies logits
 /// - Filters logits
 ///
 /// **Parameters**:
-/// - `min_keep`: Minimum number of entries to keep. (default: `1`)
-/// - `p`: TBD. (default: `1.0`)
+/// - `min_keep`: Minimum number of entries to keep. Setting this to `0` is not recommended. (default: `1`)
+/// - `p`: Referred to as τ in the paper. It suggests using 0.2
+///   as a value for story generation and `0.95` for "abstractive summarization"
+///   (presumably this means more factual output). (default: `1.0`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleLocallyTypical<L> {
-    p: L,
-    min_keep: usize,
+pub struct SampleLocallyTypical<L = f32> {
+    pub(crate) p: L,
+    pub(crate) min_keep: usize,
 }
 
 impl<L: CanLogit> Default for SampleLocallyTypical<L> {
@@ -48,7 +55,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
         &mut self,
         _res: &mut dyn HasSamplerResources<TokenId = TID>,
         logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>, SamplerError> {
+    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
@@ -97,4 +104,40 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
             .for_each(|(logit, _score)| logits.push(logit));
         Ok(logits)
     }
+}
+
+impl<L> ConfigurableSampler<usize, L> for SampleLocallyTypical<L>
+where
+    L: CanLogit + 'static,
+{
+    const NAME: &'static str = "locally typical";
+    const DESC: Option<&'static str> = Some(concat!(
+        "An approach to sampling that attempts to ",
+        "maximize natural and human-like output. ",
+        "See: https://arxiv.org/abs/2202.00666"
+    ));
+    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
+        SamplerOptionDefinition {
+            key: "p",
+            desc: Some(concat!(
+                "Referred to as τ in the paper. ",
+                "The paper suggests 0.2 as a value for story generation ",
+                "and 0.95 for \"abstractive summarization\" (",
+                "presumably this means more factual output)."
+            )),
+            typ: SamplerOptionType::Float,
+            get: |slf| SamplerOptionValue::Float(slf.p),
+            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
+        },
+        SamplerOptionDefinition {
+            key: "min_keep",
+            desc: Some(concat!(
+                "Minimum number of tokens to keep after sampling. ",
+                "Setting this to 0 is not recommended."
+            )),
+            typ: SamplerOptionType::UInt,
+            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
+            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
+        },
+    ];
 }
