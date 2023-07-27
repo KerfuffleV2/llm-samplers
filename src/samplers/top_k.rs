@@ -1,7 +1,8 @@
 use crate::{configure::*, types::*};
 
 /// # Top-K sampling
-/// This sampler prunes all but the top `k` tokens in the list.
+/// This sampler retains the top `MAX(k, min_keep)` tokens
+/// with the highest probability. The remaining tokens are eliminated.
 ///
 /// **Properties**:
 /// - Filters logits
@@ -53,17 +54,26 @@ impl<L> ConfigurableSampler<usize, L> for SampleTopK
 where
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "top-k";
+    const DESC: Option<&'static str> = Some(concat!(
+        "This sampler retains the top MAX(k, min_keep) tokens ",
+        "with the highest probability.",
+        " The remaining tokens are eliminated."
+    ));
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "k",
-            desc: None,
+            desc: Some("Number of tokens to keep."),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.k),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.k),
         },
         SamplerOptionDefinition {
             key: "min_keep",
-            desc: None,
+            desc: Some(concat!(
+                "Minimum number of tokens to keep after sampling. ",
+                "Setting this to 0 is not recommended."
+            )),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.min_keep),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),

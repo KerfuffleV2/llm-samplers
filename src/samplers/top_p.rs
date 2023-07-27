@@ -2,8 +2,8 @@ use crate::{configure::*, types::*};
 
 /// # Top-P sampling
 /// This sampler adds up the token probabilities until the value is
-/// greater or equal to `p` and at least `min_keep` tokens are encountered.
-/// The remaining tokens are eliminated.
+/// greater or equal to `p` and at least `min_keep` tokens have been
+/// encountered. The remaining tokens are eliminated.
 ///
 /// **Properties**:
 /// - Filters logits
@@ -77,17 +77,26 @@ impl<L> ConfigurableSampler<usize, L> for SampleTopP<L>
 where
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "top-p";
+    const DESC: Option<&'static str> = Some(concat!(
+        "This sampler adds up the token probabilities until the value is ",
+        "greater or equal to p and at least min_keep tokens have been encountered.",
+        " The remaining tokens are eliminated."
+    ));
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "p",
-            desc: None,
+            desc: Some("Target value for cumulative probabilities."),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.p),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
         },
         SamplerOptionDefinition {
             key: "min_keep",
-            desc: None,
+            desc: Some(concat!(
+                "Minimum number of tokens to keep after sampling. ",
+                "Setting this to 0 is not recommended."
+            )),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.min_keep),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),

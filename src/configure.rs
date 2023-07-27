@@ -4,7 +4,7 @@
 //!
 //! Unless you're writing your own implementation, you
 //! basically only need to worry about
-//! [ConfigurableSampler::configure_from_str](crate::configure::ConfigurableSampler::configure_from_str).
+//! [ConfigurableSampler::configure](crate::configure::ConfigurableSampler::configure).
 //! The built in samplers all implement this trait.
 //!
 //! Currently the default implementations aren't as flexible
@@ -144,7 +144,7 @@ pub struct SamplerOptionDefinition<T, UI, F> {
     pub key: &'static str,
 
     /// Optional option name.
-    pub desc: Option<Cow<'static, str>>,
+    pub desc: Option<&'static str>,
 
     /// The type of option.
     pub typ: SamplerOptionType,
@@ -172,6 +172,12 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
+    /// Sampler name.
+    const NAME: &'static str;
+
+    /// Sampler description.
+    const DESC: Option<&'static str> = None;
+
     /// Defines the options the sampler supports using for configuration.
     const OPTIONS: &'static [SamplerOptionDefinition<Self, UI, F>] = &[];
 

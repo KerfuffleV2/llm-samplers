@@ -64,4 +64,6 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
+    const NAME: &'static str = "greedy";
+    const DESC: Option<&'static str> = Some("Selects the token with the highest logit value.");
 }

@@ -53,9 +53,11 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "temperature";
+    const DESC: Option<&'static str> = Some("Temperature sampling");
     const OPTIONS: &'static [SamplerOptionDefinition<Self, TID, L>] = &[SamplerOptionDefinition {
         key: "temperature",
-        desc: None,
+        desc: Some("Temperature value. Higher values make the output more random."),
         typ: SamplerOptionType::Float,
         get: |slf| SamplerOptionValue::Float(slf.temperature),
         get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.temperature),

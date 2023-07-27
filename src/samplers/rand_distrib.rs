@@ -64,4 +64,6 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
+    const NAME: &'static str = "random distribution";
+    const DESC: Option<&'static str> = Some("Randomly selects a token based on its probability.");
 }

@@ -11,6 +11,7 @@ use crate::{
 };
 
 /// # Mirostat V1 sampling
+/// See: <https://arxiv.org/abs/2007.14966>
 ///
 /// *Note*: The sampler does have a default implementation, however
 /// it cannot be used until `n_vocab` is set.
@@ -170,6 +171,8 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "mirostat 1";
+    const DESC: Option<&'static str> = Some("See: https://arxiv.org/abs/2007.14966");
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "tau",
@@ -219,6 +222,7 @@ where
 // *********************************************
 
 /// # Mirostat V2 sampling
+/// See: <https://arxiv.org/abs/2007.14966>
 ///
 /// **Properties**:
 /// - Modifies logits
@@ -333,6 +337,8 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "mirostat 2";
+    const DESC: Option<&'static str> = Some("See: https://arxiv.org/abs/2007.14966");
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "tau",

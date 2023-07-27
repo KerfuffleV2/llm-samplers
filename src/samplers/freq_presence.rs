@@ -119,24 +119,37 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "frequency/presence";
+    const DESC: Option<&'static str> =
+        Some("Applies a penalty to tokens based on their presence and/or frequency");
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "frequency_penalty",
-            desc: None,
+            desc: Some(concat!(
+                "Penalty to apply to tokens based on frequency. ",
+                "For example, if a token has appeared 3 times within the last_n ",
+                "range then it will have its probability decreased by ",
+                "3 * frequency_penalty."
+            )),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.frequency_penalty),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.frequency_penalty),
         },
         SamplerOptionDefinition {
             key: "presence_penalty",
-            desc: None,
+            desc: Some(concat!(
+                "Penalty to apply to tokens that are already present ",
+                "within the last_n tokens."
+            )),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.presence_penalty),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.presence_penalty),
         },
         SamplerOptionDefinition {
             key: "last_n",
-            desc: None,
+            desc: Some(
+                "Number of previous tokens to consider when determining presence or frequency.",
+            ),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.last_n),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),

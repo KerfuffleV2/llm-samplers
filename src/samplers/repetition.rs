@@ -93,17 +93,22 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "repetition";
+    const DESC: Option<&'static str> = Some(concat!(
+        "Applies a penalty to tokens when they've ",
+        "already appeared within the previous last_n tokens."
+    ));
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "penalty",
-            desc: None,
+            desc: Some("Penalty to apply to tokens that meet the repetition criteria."),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.repetition_penalty),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.repetition_penalty),
         },
         SamplerOptionDefinition {
             key: "last_n",
-            desc: None,
+            desc: Some("Number of previous tokens to consider when determining repetition."),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.last_n),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),

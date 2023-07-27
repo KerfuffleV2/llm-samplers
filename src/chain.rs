@@ -1,10 +1,13 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign},
+};
 
 use crate::types::{CanLogit, CanTokenId, HasSamplerResources, Logits, Sampler};
 
 #[derive(Default, Debug)]
 /// A list of [Sampler]s that can be run in sequence. It implements `Sampler`
-/// so you can stick build samplers as modular components. A typical use case would
+/// so you can build samplers as modular components. A typical use case would
 /// be to have several filtering samplers and then a token-picking sampler as the last
 /// item to enable calling [Sampler::sample_token] on the chain.
 pub struct SamplerChain<TID = u32, L = f32> {
@@ -51,7 +54,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SamplerChain<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit, Rhs> std::ops::AddAssign<Rhs> for SamplerChain<TID, L>
+impl<TID: CanTokenId, L: CanLogit, Rhs> AddAssign<Rhs> for SamplerChain<TID, L>
 where
     Rhs: Sampler<TID, L> + Send + Sync + 'static,
 {
@@ -60,7 +63,7 @@ where
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit, Rhs> std::ops::Add<Rhs> for SamplerChain<TID, L>
+impl<TID: CanTokenId, L: CanLogit, Rhs> Add<Rhs> for SamplerChain<TID, L>
 where
     Rhs: Sampler<TID, L> + Send + Sync + 'static,
 {

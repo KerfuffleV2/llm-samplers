@@ -1,14 +1,18 @@
 use crate::{configure::*, types::*};
 
 /// # Tail free sampling
+/// An approach to sampling that attempts to outperform existing
+/// nucleus (top-p and top-k) methods.
+/// See: <https://trentbrick.github.io/Tail-Free-Sampling/>
 ///
 /// **Properties**:
 /// - Modifies logits
 /// - Filters logits
 ///
 /// **Parameters**:
-/// - `min_keep`: Minimum number of entries to keep. (default: `1`)
-/// - `z`: TBD. (default: `1.0`)
+/// - `min_keep`: Minimum number of entries to keep. Setting this to `0` is not recommended. (default: `1`)
+/// - `z`: The z parameter. It is not entirely clear what a reasonable value here is but 1.0 appears to be
+///   the same as disabled which is similar to top-p sampling. (default: `1.0`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SampleTailFree<L = f32> {
     pub(crate) z: L,
@@ -107,17 +111,30 @@ impl<L> ConfigurableSampler<usize, L> for SampleTailFree<L>
 where
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "tail free";
+    const DESC: Option<&'static str> = Some(concat!(
+        "An approach to sampling that attempts to ",
+        "outperform existing nucleus (top-p and top-k) methods. ",
+        "See: https://trentbrick.github.io/Tail-Free-Sampling/"
+    ));
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "z",
-            desc: None,
+            desc: Some(concat!(
+                "The z parameter. It is not entirely clear ",
+                "what a reasonable value here is but 1.0 appears to be the same ",
+                "as disabled which is similar to top-p sampling."
+            )),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.z),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.z),
         },
         SamplerOptionDefinition {
             key: "min_keep",
-            desc: None,
+            desc: Some(concat!(
+                "Minimum number of tokens to keep after sampling. ",
+                "Setting this to 0 is not recommended."
+            )),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.min_keep),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),

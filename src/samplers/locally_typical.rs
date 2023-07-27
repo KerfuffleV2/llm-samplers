@@ -5,13 +5,20 @@ use crate::{configure::*, types::*};
 // FIXME: Complete documentation.
 /// # Locally typical sampling
 ///
+/// An approach to sampling that attempts to maximize natural
+/// and human-like output.
+///
+/// See: <https://arxiv.org/abs/2202.00666>
+///
 /// **Properties**:
 /// - Modifies logits
 /// - Filters logits
 ///
 /// **Parameters**:
-/// - `min_keep`: Minimum number of entries to keep. (default: `1`)
-/// - `p`: TBD. (default: `1.0`)
+/// - `min_keep`: Minimum number of entries to keep. Setting this to `0` is not recommended. (default: `1`)
+/// - `p`: Referred to as τ in the paper. It suggests using 0.2
+///   as a value for story generation and `0.95` for "abstractive summarization"
+///   (presumably this means more factual output). (default: `1.0`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SampleLocallyTypical<L = f32> {
     pub(crate) p: L,
@@ -103,17 +110,31 @@ impl<L> ConfigurableSampler<usize, L> for SampleLocallyTypical<L>
 where
     L: CanLogit + 'static,
 {
+    const NAME: &'static str = "locally typical";
+    const DESC: Option<&'static str> = Some(concat!(
+        "An approach to sampling that attempts to ",
+        "maximize natural and human-like output. ",
+        "See: https://arxiv.org/abs/2202.00666"
+    ));
     const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
         SamplerOptionDefinition {
             key: "p",
-            desc: None,
+            desc: Some(concat!(
+                "Referred to as τ in the paper. ",
+                "The paper suggests 0.2 as a value for story generation ",
+                "and 0.95 for \"abstractive summarization\" (",
+                "presumably this means more factual output)."
+            )),
             typ: SamplerOptionType::Float,
             get: |slf| SamplerOptionValue::Float(slf.p),
             get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
         },
         SamplerOptionDefinition {
             key: "min_keep",
-            desc: None,
+            desc: Some(concat!(
+                "Minimum number of tokens to keep after sampling. ",
+                "Setting this to 0 is not recommended."
+            )),
             typ: SamplerOptionType::UInt,
             get: |slf| SamplerOptionValue::UInt(slf.min_keep),
             get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
