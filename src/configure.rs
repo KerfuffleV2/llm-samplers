@@ -132,7 +132,7 @@ impl<'a> SamplerOptionValue<'a> {
 pub type SamplerOptionValueAccessor<T, UI = u32, F = f32> =
     for<'a> fn(&'a T) -> SamplerOptionValue<'a, UI, F>;
 
-/// Conveniencge type alias for mutably accessing sampler option values.
+/// Convenience type alias for mutably accessing sampler option values.
 pub type SamplerOptionMutRefAccessor<T, UI = u32, F = f32> =
     for<'a> fn(&'a mut T) -> SamplerOptionValueMut<'a, UI, F>;
 

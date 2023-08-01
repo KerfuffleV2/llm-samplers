@@ -65,9 +65,13 @@ fn validate(
         .zip(expected.iter())
         .map(|(l, e)| (l.prob - e).abs())
         .collect::<Vec<_>>();
+    let lprobs = logits.iter().map(|i| i.prob).collect::<Vec<_>>();
     // println!("initial:\n{logits:?}\nexpected:\n{expected:?}\ngot:\n{result:?}");
     assert_eq!(result.len(), expected.len());
-    assert!(result.into_iter().all(|i| i < 0.00001))
+    assert!(
+        result.iter().all(|i| *i < 0.00001),
+        "{result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
+    )
 }
 
 fn validate_sm(
@@ -274,6 +278,55 @@ mod sampler {
             &[0.499977, 0.499977, 0.000023, 0.000023, 0.0],
             validate_sm,
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequence_repetition() -> Result<()> {
+        const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 0, 1, 2]));
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default().min_length(3),
+            T,
+            &[0.2, 0.2, 0.2, 0.2, 0.2],
+            validate_sm,
+        );
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .flat_penalty(5.0),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .stacking_penalty(1.25),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 4, 2, 3, 0, 1, 2]));
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .tolerance(1)
+                .stacking_penalty(1.25),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
         Ok(())
     }
 
