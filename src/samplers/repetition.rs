@@ -126,17 +126,27 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
-        vec![
-            SamplerOptionValueMut::Float(&mut self.repetition_penalty),
-            SamplerOptionValueMut::UInt(&mut self.last_n),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.repetition_penalty)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.last_n)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
-        vec![
-            SamplerOptionValue::Float(self.repetition_penalty),
-            SamplerOptionValue::UInt(self.last_n),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.repetition_penalty)),
+                    Some(SamplerOptionValue::UInt(self.last_n)),
+                ],
+            )
+        }
     }
 }

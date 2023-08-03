@@ -335,25 +335,35 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
-        vec![
-            SamplerOptionValueMut::Float(&mut self.flat_penalty),
-            SamplerOptionValueMut::Float(&mut self.stacking_penalty),
-            SamplerOptionValueMut::UInt(&mut self.min_length),
-            SamplerOptionValueMut::UInt(&mut self.tolerance),
-            SamplerOptionValueMut::UInt(&mut self.max_merge),
-            SamplerOptionValueMut::UInt(&mut self.last_n),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.flat_penalty)),
+                    Some(SamplerOptionValueMut::Float(&mut self.stacking_penalty)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_length)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.tolerance)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.max_merge)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.last_n)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
-        vec![
-            SamplerOptionValue::Float(self.flat_penalty),
-            SamplerOptionValue::Float(self.stacking_penalty),
-            SamplerOptionValue::UInt(self.min_length),
-            SamplerOptionValue::UInt(self.tolerance),
-            SamplerOptionValue::UInt(self.max_merge),
-            SamplerOptionValue::UInt(self.last_n),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.flat_penalty)),
+                    Some(SamplerOptionValue::Float(self.stacking_penalty)),
+                    Some(SamplerOptionValue::UInt(self.min_length)),
+                    Some(SamplerOptionValue::UInt(self.tolerance)),
+                    Some(SamplerOptionValue::UInt(self.max_merge)),
+                    Some(SamplerOptionValue::UInt(self.last_n)),
+                ],
+            )
+        }
     }
 }

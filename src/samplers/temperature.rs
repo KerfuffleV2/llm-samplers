@@ -72,11 +72,21 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, UI, F>> {
-        vec![SamplerOptionValueMut::Float(&mut self.temperature)]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, UI, F>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<UI, F>::sampler_metadata(self).options,
+                [Some(SamplerOptionValueMut::Float(&mut self.temperature))],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, UI, F>> {
-        vec![SamplerOptionValue::Float(self.temperature)]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, UI, F>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<UI, F>::sampler_metadata(self).options,
+                [Some(SamplerOptionValue::Float(self.temperature))],
+            )
+        }
     }
 }

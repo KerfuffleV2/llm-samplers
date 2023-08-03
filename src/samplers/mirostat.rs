@@ -1,3 +1,4 @@
+#![deny(implied_bounds_entailment)]
 use std::fmt::Debug;
 
 use anyhow::Result;
@@ -171,8 +172,8 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
-    fn post_set_option(&mut self, optidx: usize) -> Result<()> {
-        if self.sampler_metadata().options[optidx].key == "tau" {
+    fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
+        if md.key == "tau" {
             self.mu = self.tau * (L::one() + L::one());
         }
         Ok(())
@@ -218,24 +219,34 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
-        vec![
-            SamplerOptionValueMut::Float(&mut self.tau),
-            SamplerOptionValueMut::Float(&mut self.eta),
-            SamplerOptionValueMut::Float(&mut self.mu),
-            SamplerOptionValueMut::UInt(&mut self.m),
-            SamplerOptionValueMut::UInt(&mut self.n_vocab),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.tau)),
+                    Some(SamplerOptionValueMut::Float(&mut self.eta)),
+                    Some(SamplerOptionValueMut::Float(&mut self.mu)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.m)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.n_vocab)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
-        vec![
-            SamplerOptionValue::Float(self.tau),
-            SamplerOptionValue::Float(self.eta),
-            SamplerOptionValue::Float(self.mu),
-            SamplerOptionValue::UInt(self.m),
-            SamplerOptionValue::UInt(self.n_vocab),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.tau)),
+                    Some(SamplerOptionValue::Float(self.eta)),
+                    Some(SamplerOptionValue::Float(self.mu)),
+                    Some(SamplerOptionValue::UInt(self.m)),
+                    Some(SamplerOptionValue::UInt(self.n_vocab)),
+                ],
+            )
+        }
     }
 }
 
@@ -357,8 +368,8 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
-    fn post_set_option(&mut self, optidx: usize) -> Result<()> {
-        if self.sampler_metadata().options[optidx].key == "tau" {
+    fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
+        if md.key == "tau" {
             self.mu = self.tau * (L::one() + L::one());
         }
         Ok(())
@@ -394,19 +405,29 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
-        vec![
-            SamplerOptionValueMut::Float(&mut self.tau),
-            SamplerOptionValueMut::Float(&mut self.eta),
-            SamplerOptionValueMut::Float(&mut self.mu),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.tau)),
+                    Some(SamplerOptionValueMut::Float(&mut self.eta)),
+                    Some(SamplerOptionValueMut::Float(&mut self.mu)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
-        vec![
-            SamplerOptionValue::Float(self.tau),
-            SamplerOptionValue::Float(self.eta),
-            SamplerOptionValue::Float(self.mu),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.tau)),
+                    Some(SamplerOptionValue::Float(self.eta)),
+                    Some(SamplerOptionValue::Float(self.mu)),
+                ],
+            )
+        }
     }
 }

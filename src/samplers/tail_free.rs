@@ -143,17 +143,27 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
-        vec![
-            SamplerOptionValueMut::Float(&mut self.z),
-            SamplerOptionValueMut::UInt(&mut self.min_keep),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.z)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
-        vec![
-            SamplerOptionValue::Float(self.z),
-            SamplerOptionValue::UInt(self.min_keep),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.z)),
+                    Some(SamplerOptionValue::UInt(self.min_keep)),
+                ],
+            )
+        }
     }
 }

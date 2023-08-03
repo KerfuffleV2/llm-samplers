@@ -50,7 +50,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopK {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTopK where L: CanLogit + 'static {}
+impl<L> ConfigurableSampler<usize, L> for SampleTopK where L: ConfigurableNumValue + 'static {}
 
 impl<F> HasSamplerMetadata<usize, F> for SampleTopK
 where
@@ -82,17 +82,27 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, F>> {
-        vec![
-            SamplerOptionValueMut::UInt(&mut self.k),
-            SamplerOptionValueMut::UInt(&mut self.min_keep),
-        ]
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, F>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<usize, F>::sampler_metadata(self).options,
+                [
+                    Some(SamplerOptionValueMut::UInt(&mut self.k)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
+                ],
+            )
+        }
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, F>> {
-        vec![
-            SamplerOptionValue::UInt(self.k),
-            SamplerOptionValue::UInt(self.min_keep),
-        ]
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, F>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<usize, F>::sampler_metadata(self).options,
+                [
+                    Some(SamplerOptionValue::UInt(self.k)),
+                    Some(SamplerOptionValue::UInt(self.min_keep)),
+                ],
+            )
+        }
     }
 }
