@@ -128,34 +128,7 @@ impl<'a> SamplerOptionValue<'a> {
     }
 }
 
-/// Convenience type alias for sampler option value accessors.
-pub type SamplerOptionValueAccessor<T, UI = u32, F = f32> =
-    for<'a> fn(&'a T) -> SamplerOptionValue<'a, UI, F>;
-
-/// Convenience type alias for mutably accessing sampler option values.
-pub type SamplerOptionMutRefAccessor<T, UI = u32, F = f32> =
-    for<'a> fn(&'a mut T) -> SamplerOptionValueMut<'a, UI, F>;
-
 /// Structure that defines a sampler option.
-/// `T` is the actual object type, `UI` is the unsigned integer value type,
-/// `F` is the signed float value type.
-pub struct SamplerOptionDefinition<T, UI, F> {
-    /// Option name.
-    pub key: &'static str,
-
-    /// Optional option name.
-    pub desc: Option<&'static str>,
-
-    /// The type of option.
-    pub typ: SamplerOptionType,
-
-    /// Read only access to sampler option values.
-    pub get: SamplerOptionValueAccessor<T, UI, F>,
-
-    /// Mutable access to sampler option values.
-    pub get_mut: SamplerOptionMutRefAccessor<T, UI, F>,
-}
-
 pub struct SamplerOptionMetadata {
     /// Option name.
     pub key: &'static str,
@@ -167,6 +140,7 @@ pub struct SamplerOptionMetadata {
     pub option_type: SamplerOptionType,
 }
 
+/// Structure that defines a sampler's metadata.
 pub struct SamplerMetadata {
     pub name: &'static str,
     pub description: Option<&'static str>,
