@@ -169,11 +169,11 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, UI, F>> {
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, UI, F>> {
         vec![]
     }
 
-    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, UI, F>> {
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, UI, F>> {
         vec![]
     }
 }
@@ -228,7 +228,7 @@ where
 
     /// Called before an option is set and is passed a mutable reference
     /// to the [SamplerOptionValue]. It is also passed an index into
-    /// the [Self::OPTIONS] definition list.
+    /// the options definition list.
     ///
     /// The default implementation is a no-op.
     #[allow(unused_variables)]
@@ -237,7 +237,7 @@ where
     }
 
     /// Called before an option is set is passed an index into
-    /// the [Self::OPTIONS] definition list.
+    /// the options definition list.
     ///
     /// The default implementation is a no-op.
     #[allow(unused_variables)]
