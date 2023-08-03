@@ -221,8 +221,9 @@ where
     /// the option and [Self::post_set_option] afterward. For an example of
     /// the latter you can look at the Mirostat samplers: when `tau` is set, they'll
     /// automatically set `mu` to `tau * 2`.
-    fn set_option(&mut self, key: &str, val: SamplerOptionValue) -> Result<&mut Self> {
-        configurable_sampler::set_option(self, key, val)
+    fn set_option(&mut self, key: &str, val: SamplerOptionValue) -> Result<()> {
+        configurable_sampler::set_option(self, key, val)?;
+        Ok(())
     }
 
     /// Called before an option is set and is passed a mutable reference
@@ -270,16 +271,9 @@ where
     ///
     /// Values in this default implementation cannot contain `=` or `:`
     /// and whitespace at the beginning and end of parts are stripped.
-    fn configure(mut self, s: &str) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        self.configure_ref(s)?;
-        Ok(self)
-    }
-
-    fn configure_ref<'a>(&'a mut self, s: &str) -> Result<&'a mut Self> {
-        configurable_sampler::configure_ref(self, s)
+    fn configure(&mut self, s: &str) -> Result<()> {
+        configurable_sampler::configure(self, s)?;
+        Ok(())
     }
 }
 
@@ -388,7 +382,7 @@ pub mod configurable_sampler {
         Ok(optdef)
     }
 
-    pub fn configure_ref<'a, CS, UI, F>(slf: &'a mut CS, s: &str) -> Result<&'a mut CS>
+    pub fn configure<'a, CS, UI, F>(slf: &'a mut CS, s: &str) -> Result<&'a mut CS>
     where
         CS: ConfigurableSampler<UI, F> + HasSamplerMetadata<UI, F> + ?Sized,
         UI: ConfigurableNumValue,

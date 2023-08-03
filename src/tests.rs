@@ -539,13 +539,13 @@ mod configure {
     fn test_config_from_str1() -> Result<()> {
         let mut samp = SampleTemperature::<f32>::new(5.0);
 
-        samp = ConfigurableSampler::<u32, f32>::configure(samp, "7.0")?;
+        ConfigurableSampler::<u32, f32>::configure(&mut samp, "7.0")?;
         assert_eq!(
             ConfigurableSampler::<u32, f32>::get_option(&samp, "temperature")?,
             SamplerOptionValue::Float(7.0)
         );
-        assert!(ConfigurableSampler::<u32, f32>::configure(samp, "xyz=2.0").is_err());
-        samp = ConfigurableSampler::<u32, f32>::configure(samp, " temperature =   7.0 ")?;
+        assert!(ConfigurableSampler::<u32, f32>::configure(&mut samp, "xyz=2.0").is_err());
+        ConfigurableSampler::<u32, f32>::configure(&mut samp, " temperature =   7.0 ")?;
         assert_eq!(
             ConfigurableSampler::<u32, f32>::get_option(&samp, "temperature")?,
             SamplerOptionValue::Float(7.0)
@@ -557,10 +557,7 @@ mod configure {
     fn test_config_from_str2() -> Result<()> {
         let mut samp = SampleFreqPresence::<u32, f32>::default();
 
-        samp = ConfigurableSampler::<usize, _>::configure(
-            samp,
-            "frequency_penalty=inf : presence_penalty=-inf : last_n =69",
-        )?;
+        samp.configure("frequency_penalty=inf : presence_penalty=-inf : last_n =69")?;
         assert_eq!(
             samp.get_option("frequency_penalty")?,
             SamplerOptionValue::Float(f64::INFINITY)
@@ -570,7 +567,7 @@ mod configure {
             SamplerOptionValue::Float(f64::NEG_INFINITY)
         );
         assert_eq!(samp.get_option("last_n")?, SamplerOptionValue::UInt(69));
-        samp = ConfigurableSampler::<usize, _>::configure(samp, "f=-inf : pres=inf : last =96")?;
+        samp.configure("f=-inf : pres=inf : last =96")?;
         assert_eq!(
             samp.get_option("frequency_penalty")?,
             SamplerOptionValue::Float(f64::NEG_INFINITY)
