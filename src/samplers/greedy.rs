@@ -1,7 +1,4 @@
-use crate::{
-    configure::{ConfigurableNumValue, ConfigurableSampler},
-    types::*,
-};
+use crate::{configure::*, types::*};
 
 /// # Greedy sampling
 /// Selects the token with the highest logit value.
@@ -64,6 +61,18 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    const NAME: &'static str = "greedy";
-    const DESC: Option<&'static str> = Some("Selects the token with the highest logit value.");
+}
+
+impl<UI, F> HasSamplerMetadata<UI, F> for SampleGreedy<F>
+where
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "greedy",
+            description: Some("Selects the token with the highest logit value."),
+            options: vec![],
+        }
+    }
 }

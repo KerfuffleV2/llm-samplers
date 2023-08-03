@@ -106,38 +106,54 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleLocallyTypical<L>
+impl<L> ConfigurableSampler<usize, L> for SampleLocallyTypical<L> where L: CanLogit + 'static {}
+
+impl<L> HasSamplerMetadata<usize, L> for SampleLocallyTypical<L>
 where
-    L: CanLogit + 'static,
+    L: CanLogit + ConfigurableNumValue + 'static,
 {
-    const NAME: &'static str = "locally typical";
-    const DESC: Option<&'static str> = Some(concat!(
-        "An approach to sampling that attempts to ",
-        "maximize natural and human-like output. ",
-        "See: https://arxiv.org/abs/2202.00666"
-    ));
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "p",
-            desc: Some(concat!(
-                "Referred to as τ in the paper. ",
-                "The paper suggests 0.2 as a value for story generation ",
-                "and 0.95 for \"abstractive summarization\" (",
-                "presumably this means more factual output)."
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "locally typical",
+            description: Some(concat!(
+                "An approach to sampling that attempts to ",
+                "maximize natural and human-like output. ",
+                "See: https://arxiv.org/abs/2202.00666"
             )),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.p),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
-        },
-        SamplerOptionDefinition {
-            key: "min_keep",
-            desc: Some(concat!(
-                "Minimum number of tokens to keep after sampling. ",
-                "Setting this to 0 is not recommended."
-            )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
-        },
-    ];
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "p",
+                    description: Some(concat!(
+                        "Referred to as τ in the paper. ",
+                        "The paper suggests 0.2 as a value for story generation ",
+                        "and 0.95 for \"abstractive summarization\" (",
+                        "presumably this means more factual output)."
+                    )),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "min_keep",
+                    description: Some(concat!(
+                        "Minimum number of tokens to keep after sampling. ",
+                        "Setting this to 0 is not recommended."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
+        vec![
+            SamplerOptionValueMut::Float(&mut self.p),
+            SamplerOptionValueMut::UInt(&mut self.min_keep),
+        ]
+    }
+
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
+        vec![
+            SamplerOptionValue::Float(self.p),
+            SamplerOptionValue::UInt(self.min_keep),
+        ]
+    }
 }

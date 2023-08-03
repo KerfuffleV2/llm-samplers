@@ -271,71 +271,89 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleSeqRepetitio
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleSeqRepetition<TID, L>
+impl<TID, L> HasSamplerMetadata<usize, L> for SampleSeqRepetition<TID, L>
 where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
-    const NAME: &'static str = "sequence repetition";
-    const DESC: Option<&'static str> =
-        Some("Applies a penalty to tokens based on whether they continue a sequence that was already seen");
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "flat_penalty",
-            desc: Some(concat!(
-                "Flat penalty to apply to the token that would continue the matched sequence."
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "sequence repetition",
+            description: Some(concat!(
+                "Applies a penalty to tokens based on whether ",
+                "they continue a sequence that was already seen"
             )),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.flat_penalty),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.flat_penalty),
-        },
-        SamplerOptionDefinition {
-            key: "stacking_penalty",
-            desc: Some(concat!(
-                "Stacking penalty to the token that would continue the matched sequence, ",
-                "it is multiplied by the sequence length."
-            )),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.stacking_penalty),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.stacking_penalty),
-        },
-        SamplerOptionDefinition {
-            key: "min_length",
-            desc: Some("The minimum length for a sequence to match."),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.min_length),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_length),
-        },
-        SamplerOptionDefinition {
-            key: "tolerance",
-            desc: Some(concat!(
-                "Tolerance basically acts like a wildcard to ",
-                "allow fuzzy sequence matching. For example, if tolerance is set to 1, ",
-                "then [1, 6, 3] could match with [1, 2, 3]."
-            )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.tolerance),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.tolerance),
-        },
-        SamplerOptionDefinition {
-            key: "max_merge",
-            desc: Some(concat!(
-                "Controls the number of consecutive non-matching tokens that ",
-                "the tolerance wildcard can match. Setting this to 0 or 1 deactivates it. ",
-                "Setting it to 2 would allow [1, 6, 6, 3] to match with [1, 2, 3]."
-            )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.max_merge),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.max_merge),
-        },
-        SamplerOptionDefinition {
-            key: "last_n",
-            desc: Some(
-                "Number of previous tokens to consider when determining sequence repetition.",
-            ),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.last_n),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),
-        },
-    ];
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "flat_penalty",
+                    description: Some(concat!(
+                        "Flat penalty to apply to the token that ",
+                        "would continue the matched sequence."
+                    )),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "stacking_penalty",
+                    description: Some(concat!(
+                        "Stacking penalty to the token that would continue the matched sequence, ",
+                        "it is multiplied by the sequence length."
+                    )),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "min_length",
+                    description: Some("The minimum length for a sequence to match."),
+                    option_type: SamplerOptionType::UInt,
+                },
+                SamplerOptionMetadata {
+                    key: "tolerance",
+                    description: Some(concat!(
+                        "Tolerance basically acts like a wildcard to ",
+                        "allow fuzzy sequence matching. For example, if tolerance is set to 1, ",
+                        "then [1, 6, 3] could match with [1, 2, 3]."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+                SamplerOptionMetadata {
+                    key: "max_merge",
+                    description: Some(concat!(
+                        "Controls the number of consecutive non-matching tokens that ",
+                        "the tolerance wildcard can match. Setting this to 0 or 1 deactivates it. ",
+                        "Setting it to 2 would allow [1, 6, 6, 3] to match with [1, 2, 3]."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+                SamplerOptionMetadata {
+                    key: ("last_n"),
+                    description: Some(concat!(
+                        "Number of previous tokens to consider when ",
+                        "determining sequence repetition."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
+        vec![
+            SamplerOptionValueMut::Float(&mut self.flat_penalty),
+            SamplerOptionValueMut::Float(&mut self.stacking_penalty),
+            SamplerOptionValueMut::UInt(&mut self.min_length),
+            SamplerOptionValueMut::UInt(&mut self.tolerance),
+            SamplerOptionValueMut::UInt(&mut self.max_merge),
+            SamplerOptionValueMut::UInt(&mut self.last_n),
+        ]
+    }
+
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
+        vec![
+            SamplerOptionValue::Float(self.flat_penalty),
+            SamplerOptionValue::Float(self.stacking_penalty),
+            SamplerOptionValue::UInt(self.min_length),
+            SamplerOptionValue::UInt(self.tolerance),
+            SamplerOptionValue::UInt(self.max_merge),
+            SamplerOptionValue::UInt(self.last_n),
+        ]
+    }
 }

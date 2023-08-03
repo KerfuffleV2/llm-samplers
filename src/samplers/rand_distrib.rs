@@ -2,10 +2,7 @@ use std::fmt::Debug;
 
 use rand::distributions::{uniform::SampleUniform, Distribution, WeightedIndex};
 
-use crate::{
-    configure::{ConfigurableNumValue, ConfigurableSampler},
-    types::*,
-};
+use crate::{configure::*, types::*};
 
 /// # Random distribution sampling
 /// A fancy way of saying the sampler selects a token
@@ -64,6 +61,18 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    const NAME: &'static str = "random distribution";
-    const DESC: Option<&'static str> = Some("Randomly selects a token based on its probability.");
+}
+
+impl<UI, F> HasSamplerMetadata<UI, F> for SampleRandDistrib<UI>
+where
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "random distribution",
+            description: Some("Randomly selects a token based on its probability."),
+            options: vec![],
+        }
+    }
 }

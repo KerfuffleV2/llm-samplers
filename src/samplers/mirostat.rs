@@ -171,51 +171,71 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
-    const NAME: &'static str = "mirostat 1";
-    const DESC: Option<&'static str> = Some("See: https://arxiv.org/abs/2007.14966");
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "tau",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.tau),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.tau),
-        },
-        SamplerOptionDefinition {
-            key: "eta",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.eta),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.eta),
-        },
-        SamplerOptionDefinition {
-            key: "mu",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.mu),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.mu),
-        },
-        SamplerOptionDefinition {
-            key: "m",
-            desc: None,
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.m),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.m),
-        },
-        SamplerOptionDefinition {
-            key: "n_vocab",
-            desc: None,
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.n_vocab),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.n_vocab),
-        },
-    ];
-
     fn post_set_option(&mut self, optidx: usize) -> Result<()> {
-        if Self::OPTIONS[optidx].key == "tau" {
+        if self.sampler_metadata().options[optidx].key == "tau" {
             self.mu = self.tau * (L::one() + L::one());
         }
         Ok(())
+    }
+}
+
+impl<TID, L> HasSamplerMetadata<usize, L> for SampleMirostat1<TID, L>
+where
+    TID: CanTokenId + 'static,
+    L: CanLogit + ConfigurableNumValue + 'static,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "mirostat 1",
+            description: Some("See: https://arxiv.org/abs/2007.14966"),
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "tau",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "eta",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "mu",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "m",
+                    description: None,
+                    option_type: SamplerOptionType::UInt,
+                },
+                SamplerOptionMetadata {
+                    key: "n_vocab",
+                    description: None,
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
+        vec![
+            SamplerOptionValueMut::Float(&mut self.tau),
+            SamplerOptionValueMut::Float(&mut self.eta),
+            SamplerOptionValueMut::Float(&mut self.mu),
+            SamplerOptionValueMut::UInt(&mut self.m),
+            SamplerOptionValueMut::UInt(&mut self.n_vocab),
+        ]
+    }
+
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
+        vec![
+            SamplerOptionValue::Float(self.tau),
+            SamplerOptionValue::Float(self.eta),
+            SamplerOptionValue::Float(self.mu),
+            SamplerOptionValue::UInt(self.m),
+            SamplerOptionValue::UInt(self.n_vocab),
+        ]
     }
 }
 
@@ -337,36 +357,56 @@ where
     TID: CanTokenId + 'static,
     L: CanLogit + 'static,
 {
-    const NAME: &'static str = "mirostat 2";
-    const DESC: Option<&'static str> = Some("See: https://arxiv.org/abs/2007.14966");
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "tau",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.tau),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.tau),
-        },
-        SamplerOptionDefinition {
-            key: "eta",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.eta),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.eta),
-        },
-        SamplerOptionDefinition {
-            key: "mu",
-            desc: None,
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.mu),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.mu),
-        },
-    ];
-
     fn post_set_option(&mut self, optidx: usize) -> Result<()> {
-        if Self::OPTIONS[optidx].key == "tau" {
+        if self.sampler_metadata().options[optidx].key == "tau" {
             self.mu = self.tau * (L::one() + L::one());
         }
         Ok(())
+    }
+}
+
+impl<TID, L> HasSamplerMetadata<usize, L> for SampleMirostat2<TID, L>
+where
+    TID: CanTokenId + 'static,
+    L: CanLogit + ConfigurableNumValue + 'static,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "mirostat 2",
+            description: Some("See: https://arxiv.org/abs/2007.14966"),
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "tau",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "eta",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "mu",
+                    description: None,
+                    option_type: SamplerOptionType::Float,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, usize, L>> {
+        vec![
+            SamplerOptionValueMut::Float(&mut self.tau),
+            SamplerOptionValueMut::Float(&mut self.eta),
+            SamplerOptionValueMut::Float(&mut self.mu),
+        ]
+    }
+
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, usize, L>> {
+        vec![
+            SamplerOptionValue::Float(self.tau),
+            SamplerOptionValue::Float(self.eta),
+            SamplerOptionValue::Float(self.mu),
+        ]
     }
 }

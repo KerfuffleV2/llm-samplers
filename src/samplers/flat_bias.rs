@@ -1,9 +1,6 @@
 use num_traits::Float;
 
-use crate::{
-    configure::{ConfigurableNumValue, ConfigurableSampler},
-    types::*,
-};
+use crate::{configure::*, types::*};
 
 /// # Flat bias sampling
 /// Used to bias specific tokens by either increasing or decreasing their probability.
@@ -73,11 +70,25 @@ where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    const NAME: &'static str = "flat bias";
-    const DESC: Option<&'static str> = Some(concat!(
-        "Used to bias specific tokens by either increasing or decreasing their probability. ",
-        "One common use case is to forbid certain tokens by setting them to negative infinity,",
-        "for example if you set the end of text token to `-inf` ",
-        "the LLM will keep generating tokens."
-    ));
+}
+
+impl<UI, F> HasSamplerMetadata<UI, F> for SampleFlatBias<UI, F>
+where
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "sequence repetition",
+            description: Some(concat!(
+                "Used to bias specific tokens by either increasing or ",
+                "decreasing their probability. ",
+                "One common use case is to forbid certain tokens by ",
+                "setting them to negative infinity,",
+                "for example if you set the end of text token to `-inf` ",
+                "the LLM will keep generating tokens."
+            )),
+            options: vec![],
+        }
+    }
 }

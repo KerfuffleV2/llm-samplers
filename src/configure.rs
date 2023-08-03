@@ -156,9 +156,77 @@ pub struct SamplerOptionDefinition<T, UI, F> {
     pub get_mut: SamplerOptionMutRefAccessor<T, UI, F>,
 }
 
+pub struct SamplerOptionMetadata {
+    /// Option name.
+    pub key: &'static str,
+
+    /// Optional option name.
+    pub description: Option<&'static str>,
+
+    /// The type of option.
+    pub option_type: SamplerOptionType,
+}
+
+pub struct SamplerMetadata {
+    pub name: &'static str,
+    pub description: Option<&'static str>,
+    pub options: Vec<SamplerOptionMetadata>,
+}
+
 /// Numeric values that can be used for configuring samplers.
 pub trait ConfigurableNumValue: 'static + Copy + NumCast + FromPrimitive {}
 impl<T> ConfigurableNumValue for T where T: 'static + Copy + NumCast + FromPrimitive {}
+
+/// Configurable samplers will need to implement this trait. It provides
+/// metadata for a sampler like its name, description as well as a list of
+/// options and their types. It may also provide a way to directly access and
+/// manipulate fields in the sampler's configuration. The built-in samplers
+/// all implement this.
+pub trait HasSamplerMetadata<UI = u32, F = f32>
+where
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "unknown",
+            description: None,
+            options: vec![],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> Vec<SamplerOptionValueMut<'_, UI, F>> {
+        vec![]
+    }
+
+    fn sampler_options(&self) -> Vec<SamplerOptionValue<'_, UI, F>> {
+        vec![]
+    }
+}
+
+/// Convenience trait for samplers that supply metadata.
+///
+/// This takes four type arguments because a sampler's option types
+/// don't necessarily have to match its tokenid/logit types.
+pub trait SamplerWithMetadata<TID = u32, L = f32, UI = u32, F = f32>:
+    Sampler<TID, L> + HasSamplerMetadata<UI, F>
+where
+    TID: CanTokenId,
+    F: CanLogit,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+}
+
+impl<T, TID, L, UI, F> SamplerWithMetadata<TID, L, UI, F> for T
+where
+    Self: Sampler<TID, L> + HasSamplerMetadata<UI, F>,
+    TID: CanTokenId,
+    F: CanLogit,
+    UI: ConfigurableNumValue,
+    F: ConfigurableNumValue,
+{
+}
 
 /// Configurable samplers implement this trait. "Configurable" means
 /// they allow access to their their options by key/type and allow configuration
@@ -167,20 +235,11 @@ impl<T> ConfigurableNumValue for T where T: 'static + Copy + NumCast + FromPrimi
 /// There are default implementations for for all the methods, so in the general
 /// case you will only need to implement the `OPTIONS` constant with the option
 /// definitions.
-pub trait ConfigurableSampler<UI = u32, F = f32>: 'static + Sized
+pub trait ConfigurableSampler<UI = u32, F = f32>: HasSamplerMetadata<UI, F>
 where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    /// Sampler name.
-    const NAME: &'static str;
-
-    /// Sampler description.
-    const DESC: Option<&'static str> = None;
-
-    /// Defines the options the sampler supports using for configuration.
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, UI, F>] = &[];
-
     /// Given an option key and [SamplerOptionValue] attempts to set the option
     /// to the specified value.
     ///
@@ -223,7 +282,7 @@ where
     /// samplers with only one configurable option, a blank string
     /// counts as "unambiguous".
     fn find_option_definition(&self, key: &str) -> Result<usize> {
-        configurable_sampler::find_option_definition::<Self, UI, F>(key)
+        configurable_sampler::find_option_definition(self, key)
     }
 
     /// Updates a sampler's configurable options based on a string in the
@@ -237,7 +296,10 @@ where
     ///
     /// Values in this default implementation cannot contain `=` or `:`
     /// and whitespace at the beginning and end of parts are stripped.
-    fn configure(mut self, s: &str) -> Result<Self> {
+    fn configure(mut self, s: &str) -> Result<Self>
+    where
+        Self: Sized,
+    {
         self.configure_ref(s)?;
         Ok(self)
     }
@@ -262,7 +324,7 @@ pub mod configurable_sampler {
         mut val: SamplerOptionValue,
     ) -> Result<&'a mut CS>
     where
-        CS: ConfigurableSampler<UI, F>,
+        CS: ConfigurableSampler<UI, F> + HasSamplerMetadata<UI, F> + ?Sized,
         UI: ConfigurableNumValue,
         F: ConfigurableNumValue,
     {
@@ -270,21 +332,20 @@ pub mod configurable_sampler {
         let optidx = slf.find_option_definition(key)?;
 
         slf.pre_set_option(optidx, &mut val)?;
-        let optdef = &CS::OPTIONS[optidx];
-        let mr = (optdef.get_mut)(slf);
+        let mr = &mut (slf.sampler_options_mut())[optidx];
         match (mr, val) {
             (SamplerOptionValueMut::Float(rv), SamplerOptionValue::Float(v)) => {
-                *rv = F::from_f64(v)
+                **rv = F::from_f64(v)
                     .ok_or_else(|| ConfigureSamplerError::ConversionFailure(key.to_string()))?
             }
 
             (SamplerOptionValueMut::UInt(rv), SamplerOptionValue::UInt(v)) => {
-                *rv = UI::from_u64(v)
+                **rv = UI::from_u64(v)
                     .ok_or_else(|| ConfigureSamplerError::ConversionFailure(key.to_string()))?
             }
-            (SamplerOptionValueMut::Bool(rv), SamplerOptionValue::Bool(v)) => *rv = v,
+            (SamplerOptionValueMut::Bool(rv), SamplerOptionValue::Bool(v)) => **rv = v,
             (SamplerOptionValueMut::String(rv), SamplerOptionValue::String(v)) => {
-                *rv = Cow::from(v.to_string())
+                **rv = Cow::from(v.to_string())
             }
             _ => Err(ConfigureSamplerError::UnknownOrBadType(key.to_string()))?,
         }
@@ -294,34 +355,35 @@ pub mod configurable_sampler {
 
     pub fn get_option<'a, CS, UI, F>(slf: &'a CS, key: &str) -> Result<SamplerOptionValue<'a>>
     where
-        CS: ConfigurableSampler<UI, F>,
+        CS: ConfigurableSampler<UI, F> + HasSamplerMetadata<UI, F> + ?Sized,
         UI: ConfigurableNumValue,
         F: ConfigurableNumValue,
     {
         let key = key.trim();
-        let optdef = &CS::OPTIONS[slf.find_option_definition(key.trim())?];
+        let optidx = slf.find_option_definition(key.trim())?;
 
-        Ok(match (optdef.get)(slf) {
+        Ok(match &(slf.sampler_options())[optidx] {
             SamplerOptionValue::UInt(v) => SamplerOptionValue::UInt(
-                <u64 as NumCast>::from(v)
+                <u64 as NumCast>::from(*v)
                     .ok_or_else(|| ConfigureSamplerError::ConversionFailure(key.to_string()))?,
             ),
             SamplerOptionValue::Float(v) => SamplerOptionValue::Float(
-                <f64 as NumCast>::from(v)
+                <f64 as NumCast>::from(*v)
                     .ok_or_else(|| ConfigureSamplerError::ConversionFailure(key.to_string()))?,
             ),
-            SamplerOptionValue::Bool(v) => SamplerOptionValue::Bool(v),
+            SamplerOptionValue::Bool(v) => SamplerOptionValue::Bool(*v),
             SamplerOptionValue::String(v) => SamplerOptionValue::String(Cow::from(v.to_string())),
         })
     }
 
-    pub fn find_option_definition<CS, UI, F>(key: &str) -> Result<usize>
+    pub fn find_option_definition<CS, UI, F>(slf: &CS, key: &str) -> Result<usize>
     where
-        CS: ConfigurableSampler<UI, F>,
+        CS: ConfigurableSampler<UI, F> + HasSamplerMetadata<UI, F> + ?Sized,
         UI: ConfigurableNumValue,
         F: ConfigurableNumValue,
     {
-        let opts = &CS::OPTIONS;
+        let md = slf.sampler_metadata();
+        let opts = &md.options;
         if key.is_empty() {
             if opts.len() == 1 {
                 return Ok(0);
@@ -354,21 +416,22 @@ pub mod configurable_sampler {
 
     pub fn configure_ref<'a, CS, UI, F>(slf: &'a mut CS, s: &str) -> Result<&'a mut CS>
     where
-        CS: ConfigurableSampler<UI, F>,
+        CS: ConfigurableSampler<UI, F> + HasSamplerMetadata<UI, F> + ?Sized,
         UI: ConfigurableNumValue,
         F: ConfigurableNumValue,
     {
+        let opts = &(slf.sampler_metadata()).options;
         s.trim()
             .split(':')
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .try_for_each(|kv| {
                 let (k, v) = kv.split_once('=').unwrap_or(("", kv));
-                let optdef = &CS::OPTIONS[slf.find_option_definition(k.trim())?];
+                let optdef = &opts[slf.find_option_definition(k.trim())?];
 
                 slf.set_option(
                     optdef.key,
-                    SamplerOptionValue::parse_value(optdef.typ, v.trim())?,
+                    SamplerOptionValue::parse_value(optdef.option_type, v.trim())?,
                 )?;
                 anyhow::Ok(())
             })?;
