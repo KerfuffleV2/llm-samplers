@@ -99,7 +99,7 @@ impl<T> SamplerOptions<T> {
 /// options and their types. It may also provide a way to directly access and
 /// manipulate fields in the sampler's configuration. The built-in samplers
 /// all implement this.
-pub trait HasSamplerMetadata<UI = u32, F = f32>
+pub trait HasSamplerMetadata<UI = usize, F = f32>
 where
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
@@ -125,7 +125,7 @@ where
 ///
 /// This takes four type arguments because a sampler's option types
 /// don't necessarily have to match its tokenid/logit types.
-pub trait SamplerWithMetadata<TID = u32, L = f32, UI = u32, F = f32>:
+pub trait SamplerWithMetadata<TID = u32, L = f32, UI = usize, F = f32>:
     Sampler<TID, L> + HasSamplerMetadata<UI, F>
 where
     TID: CanTokenId,

@@ -50,11 +50,11 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopK {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTopK where L: ConfigurableNumValue + 'static {}
+impl<L> ConfigurableSampler<usize, L> for SampleTopK where L: ConfigurableNumValue {}
 
-impl<F> HasSamplerMetadata<usize, F> for SampleTopK
+impl<L> HasSamplerMetadata<usize, L> for SampleTopK
 where
-    F: ConfigurableNumValue,
+    L: ConfigurableNumValue,
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
@@ -82,10 +82,10 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, F>> {
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
         unsafe {
             SamplerOptions::build_options(
-                HasSamplerMetadata::<usize, F>::sampler_metadata(self).options,
+                HasSamplerMetadata::<usize, L>::sampler_metadata(self).options,
                 [
                     Some(SamplerOptionValueMut::UInt(&mut self.k)),
                     Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
@@ -94,10 +94,10 @@ where
         }
     }
 
-    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, F>> {
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
         unsafe {
             SamplerOptions::build_options(
-                HasSamplerMetadata::<usize, F>::sampler_metadata(self).options,
+                HasSamplerMetadata::<usize, L>::sampler_metadata(self).options,
                 [
                     Some(SamplerOptionValue::UInt(self.k)),
                     Some(SamplerOptionValue::UInt(self.min_keep)),

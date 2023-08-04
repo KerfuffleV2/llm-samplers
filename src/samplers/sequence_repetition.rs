@@ -271,10 +271,17 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleSeqRepetitio
     }
 }
 
+impl<TID, L> ConfigurableSampler<usize, L> for SampleSeqRepetition<TID, L>
+where
+    TID: ConfigurableNumValue,
+    L: ConfigurableNumValue,
+{
+}
+
 impl<TID, L> HasSamplerMetadata<usize, L> for SampleSeqRepetition<TID, L>
 where
-    TID: CanTokenId + 'static,
-    L: CanLogit + 'static,
+    TID: ConfigurableNumValue,
+    L: ConfigurableNumValue,
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

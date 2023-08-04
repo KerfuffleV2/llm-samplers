@@ -50,8 +50,8 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTemperature<L> {
 
 impl<TID, L> ConfigurableSampler<TID, L> for SampleTemperature<L>
 where
-    TID: CanTokenId + 'static,
-    L: CanLogit + 'static,
+    TID: ConfigurableNumValue,
+    L: ConfigurableNumValue,
 {
 }
 

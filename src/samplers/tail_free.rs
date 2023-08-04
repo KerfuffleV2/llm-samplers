@@ -107,11 +107,11 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTailFree<L> where L: CanLogit + 'static {}
+impl<L> ConfigurableSampler<usize, L> for SampleTailFree<L> where L: ConfigurableNumValue {}
 
 impl<L> HasSamplerMetadata<usize, L> for SampleTailFree<L>
 where
-    L: CanLogit + ConfigurableNumValue + 'static,
+    L: ConfigurableNumValue,
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
