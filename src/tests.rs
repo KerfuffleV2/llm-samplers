@@ -580,3 +580,44 @@ mod configure {
         Ok(())
     }
 }
+
+mod build {
+    use super::*;
+
+    use crate::configure::*;
+
+    #[test]
+    fn test_build1() -> Result<()> {
+        let mut ss: SamplerChainBuilder = SamplerChainBuilder::from([
+            (
+                "rep".to_string(),
+                SamplerSlot::new_chain(|| Box::new(SampleRepetition::new(0.0, 0)), []),
+            ),
+            (
+                "freqpres".to_string(),
+                SamplerSlot::new_single(
+                    || Box::new(SampleFreqPresence::new(0.0, 0.0, 0)),
+                    Option::<SampleFreqPresence>::None,
+                ),
+            ),
+            (
+                "greedy".to_string(),
+                SamplerSlot::new_static(|| Box::new(SampleGreedy::<u32>::new())),
+            ),
+        ]);
+
+        ss.configure("rep", "penalty=1.1:last_n=64")?;
+        ss.configure("rep", "penalty=1.1:last_n=64")?;
+        ss.configure("freqpres", "frequency=.5")?;
+        ss.configure("freqpres", "last_n=4")?;
+
+        let mut sc = ss.into_chain();
+
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
+        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.2, 0.2].into_iter())?;
+        let tok = sc.sample_token(&mut res, &mut logits)?;
+        assert_eq!(tok, Some(1));
+
+        Ok(())
+    }
+}

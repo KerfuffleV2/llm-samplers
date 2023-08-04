@@ -1,7 +1,5 @@
 use anyhow::Result;
 
-use crate::types::*;
-
 use super::*;
 
 /// Structure that defines a sampler option.
@@ -121,26 +119,26 @@ where
     }
 }
 
-/// Convenience trait for samplers that supply metadata.
-///
-/// This takes four type arguments because a sampler's option types
-/// don't necessarily have to match its tokenid/logit types.
-pub trait SamplerWithMetadata<TID = u32, L = f32, UI = usize, F = f32>:
-    Sampler<TID, L> + HasSamplerMetadata<UI, F>
-where
-    TID: CanTokenId,
-    F: CanLogit,
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
-{
-}
+// /// Convenience trait for samplers that supply metadata.
+// ///
+// /// This takes four type arguments because a sampler's option types
+// /// don't necessarily have to match its tokenid/logit types.
+// pub trait SamplerWithMetadata<TID = u32, L = f32, UI = usize, F = f32>:
+//     Sampler<TID, L> + HasSamplerMetadata<UI, F>
+// where
+//     TID: CanTokenId,
+//     F: CanLogit,
+//     UI: ConfigurableNumValue,
+//     F: ConfigurableNumValue,
+// {
+// }
 
-impl<T, TID, L, UI, F> SamplerWithMetadata<TID, L, UI, F> for T
-where
-    Self: Sampler<TID, L> + HasSamplerMetadata<UI, F>,
-    TID: CanTokenId,
-    F: CanLogit,
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
-{
-}
+// impl<T, TID, L, UI, F> SamplerWithMetadata<TID, L, UI, F> for T
+// where
+//     Self: Sampler<TID, L> + HasSamplerMetadata<UI, F>,
+//     TID: CanTokenId,
+//     F: CanLogit,
+//     UI: ConfigurableNumValue,
+//     F: ConfigurableNumValue,
+// {
+// }

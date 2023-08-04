@@ -78,8 +78,7 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
 
         if logits.is_empty()
             || last_n == 0
-            || frequency_penalty == L::zero()
-            || presence_penalty == L::zero()
+            || (frequency_penalty == L::zero() && presence_penalty == L::zero())
         {
             return Ok(logits);
         }
@@ -114,17 +113,13 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleFreqPresence<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
+    for SampleFreqPresence<TID, L>
 {
 }
 
-impl<TID, L> HasSamplerMetadata<usize, L> for SampleFreqPresence<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
+    for SampleFreqPresence<TID, L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

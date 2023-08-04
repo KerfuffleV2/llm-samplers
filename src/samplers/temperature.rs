@@ -48,17 +48,13 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTemperature<L> {
     }
 }
 
-impl<TID, L> ConfigurableSampler<TID, L> for SampleTemperature<L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> ConfigurableSampler<UI, L>
+    for SampleTemperature<L>
 {
 }
 
-impl<UI, F> HasSamplerMetadata<UI, F> for SampleTemperature<F>
-where
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
+impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> HasSamplerMetadata<UI, L>
+    for SampleTemperature<L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
@@ -72,19 +68,19 @@ where
         }
     }
 
-    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, UI, F>> {
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, UI, L>> {
         unsafe {
             SamplerOptions::build_options(
-                HasSamplerMetadata::<UI, F>::sampler_metadata(self).options,
+                HasSamplerMetadata::<UI, L>::sampler_metadata(self).options,
                 [Some(SamplerOptionValueMut::Float(&mut self.temperature))],
             )
         }
     }
 
-    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, UI, F>> {
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, UI, L>> {
         unsafe {
             SamplerOptions::build_options(
-                HasSamplerMetadata::<UI, F>::sampler_metadata(self).options,
+                HasSamplerMetadata::<UI, L>::sampler_metadata(self).options,
                 [Some(SamplerOptionValue::Float(self.temperature))],
             )
         }

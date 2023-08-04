@@ -56,15 +56,17 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
     }
 }
 
-impl<UI, F> ConfigurableSampler<UI, F> for SampleGreedy<F>
+impl<TID, UI, F> ConfigurableSampler<UI, F> for SampleGreedy<TID>
 where
+    TID: ConfigurableNumValue,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
 }
 
-impl<UI, F> HasSamplerMetadata<UI, F> for SampleGreedy<F>
+impl<TID, UI, F> HasSamplerMetadata<UI, F> for SampleGreedy<TID>
 where
+    TID: ConfigurableNumValue,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {

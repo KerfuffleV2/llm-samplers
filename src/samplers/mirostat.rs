@@ -167,10 +167,8 @@ where
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleMirostat1<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue + Float,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue + Float> ConfigurableSampler<usize, L>
+    for SampleMirostat1<TID, L>
 {
     fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
         if md.key == "tau" {
@@ -180,10 +178,8 @@ where
     }
 }
 
-impl<TID, L> HasSamplerMetadata<usize, L> for SampleMirostat1<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
+    for SampleMirostat1<TID, L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
@@ -363,10 +359,8 @@ where
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleMirostat2<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue + Float,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue + Float> ConfigurableSampler<usize, L>
+    for SampleMirostat2<TID, L>
 {
     fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
         if md.key == "tau" {
@@ -376,10 +370,8 @@ where
     }
 }
 
-impl<TID, L> HasSamplerMetadata<usize, L> for SampleMirostat2<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
+    for SampleMirostat2<TID, L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

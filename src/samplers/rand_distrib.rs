@@ -56,17 +56,13 @@ where
     }
 }
 
-impl<UI, F> ConfigurableSampler<UI, F> for SampleRandDistrib<UI>
-where
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, UI: ConfigurableNumValue, F: ConfigurableNumValue>
+    ConfigurableSampler<UI, F> for SampleRandDistrib<TID>
 {
 }
 
-impl<UI, F> HasSamplerMetadata<UI, F> for SampleRandDistrib<UI>
-where
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, UI: ConfigurableNumValue, F: ConfigurableNumValue>
+    HasSamplerMetadata<UI, F> for SampleRandDistrib<TID>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

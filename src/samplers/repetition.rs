@@ -62,7 +62,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
             ..
         } = *self;
 
-        if logits.is_empty() || last_n == 0 || repetition_penalty == L::zero() {
+        if logits.is_empty() || last_n == 0 || repetition_penalty <= L::one() {
             return Ok(logits);
         }
 
@@ -88,17 +88,13 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleRepetition<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
+    for SampleRepetition<TID, L>
 {
 }
 
-impl<TID, L> HasSamplerMetadata<usize, L> for SampleRepetition<TID, L>
-where
-    TID: ConfigurableNumValue,
-    L: ConfigurableNumValue,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
+    for SampleRepetition<TID, L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

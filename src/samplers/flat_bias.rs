@@ -65,17 +65,21 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleFlatBias<TID, L> {
 }
 
 // FIXME: Find a sane way to implement this for the list of bias items.
-impl<UI, F> ConfigurableSampler<UI, F> for SampleFlatBias<UI, F>
-where
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
+impl<
+        TID: ConfigurableNumValue,
+        L: ConfigurableNumValue,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
+    > ConfigurableSampler<UI, F> for SampleFlatBias<TID, L>
 {
 }
 
-impl<UI, F> HasSamplerMetadata<UI, F> for SampleFlatBias<UI, F>
-where
-    UI: ConfigurableNumValue,
-    F: ConfigurableNumValue,
+impl<
+        TID: ConfigurableNumValue,
+        L: ConfigurableNumValue,
+        UI: ConfigurableNumValue,
+        F: ConfigurableNumValue,
+    > HasSamplerMetadata<UI, F> for SampleFlatBias<TID, L>
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
