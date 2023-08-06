@@ -132,12 +132,15 @@ impl<TID, L, UI, F> Default for SamplerChainBuilder<TID, L, UI, F> {
     }
 }
 
-impl<TID, L, UI, F, I: IntoIterator<Item = (String, SamplerSlot<TID, L, UI, F>)>> From<I>
+impl<S: AsRef<str>, TID, L, UI, F, I: IntoIterator<Item = (S, SamplerSlot<TID, L, UI, F>)>> From<I>
     for SamplerChainBuilder<TID, L, UI, F>
 {
     fn from(value: I) -> Self {
         Self {
-            slots: value.into_iter().collect(),
+            slots: value
+                .into_iter()
+                .map(|(name, slot)| (name.as_ref().to_string(), slot))
+                .collect(),
         }
     }
 }
