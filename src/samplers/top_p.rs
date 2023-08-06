@@ -73,33 +73,56 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTopP<L>
-where
-    L: CanLogit + 'static,
-{
-    const NAME: &'static str = "top-p";
-    const DESC: Option<&'static str> = Some(concat!(
-        "This sampler adds up the token probabilities until the value is ",
-        "greater or equal to p and at least min_keep tokens have been encountered.",
-        " The remaining tokens are eliminated."
-    ));
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "p",
-            desc: Some("Target value for cumulative probabilities."),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.p),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.p),
-        },
-        SamplerOptionDefinition {
-            key: "min_keep",
-            desc: Some(concat!(
-                "Minimum number of tokens to keep after sampling. ",
-                "Setting this to 0 is not recommended."
+impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleTopP<L> {}
+
+impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleTopP<L> {
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "top-p",
+            description: Some(concat!(
+                "This sampler adds up the token probabilities until the value is ",
+                "greater or equal to p and at least min_keep tokens have been encountered.",
+                " The remaining tokens are eliminated."
             )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
-        },
-    ];
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "p",
+                    description: Some("Target value for cumulative probabilities."),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "min_keep",
+                    description: Some(concat!(
+                        "Minimum number of tokens to keep after sampling. ",
+                        "Setting this to 0 is not recommended."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.p)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
+                ],
+            )
+        }
+    }
+
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.p)),
+                    Some(SamplerOptionValue::UInt(self.min_keep)),
+                ],
+            )
+        }
+    }
 }

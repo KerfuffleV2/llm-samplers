@@ -50,33 +50,56 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopK {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTopK
-where
-    L: CanLogit + 'static,
-{
-    const NAME: &'static str = "top-k";
-    const DESC: Option<&'static str> = Some(concat!(
-        "This sampler retains the top MAX(k, min_keep) tokens ",
-        "with the highest probability.",
-        " The remaining tokens are eliminated."
-    ));
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "k",
-            desc: Some("Number of tokens to keep."),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.k),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.k),
-        },
-        SamplerOptionDefinition {
-            key: "min_keep",
-            desc: Some(concat!(
-                "Minimum number of tokens to keep after sampling. ",
-                "Setting this to 0 is not recommended."
+impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleTopK {}
+
+impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleTopK {
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "top-k",
+            description: Some(concat!(
+                "This sampler retains the top MAX(k, min_keep) tokens ",
+                "with the highest probability.",
+                " The remaining tokens are eliminated."
             )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
-        },
-    ];
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "k",
+                    description: Some("Number of tokens to keep."),
+                    option_type: SamplerOptionType::UInt,
+                },
+                SamplerOptionMetadata {
+                    key: "min_keep",
+                    description: Some(concat!(
+                        "Minimum number of tokens to keep after sampling. ",
+                        "Setting this to 0 is not recommended."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<usize, L>::sampler_metadata(self).options,
+                [
+                    Some(SamplerOptionValueMut::UInt(&mut self.k)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
+                ],
+            )
+        }
+    }
+
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<usize, L>::sampler_metadata(self).options,
+                [
+                    Some(SamplerOptionValue::UInt(self.k)),
+                    Some(SamplerOptionValue::UInt(self.min_keep)),
+                ],
+            )
+        }
+    }
 }

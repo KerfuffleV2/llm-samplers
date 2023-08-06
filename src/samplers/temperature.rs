@@ -48,18 +48,41 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTemperature<L> {
     }
 }
 
-impl<TID, L> ConfigurableSampler<TID, L> for SampleTemperature<L>
-where
-    TID: CanTokenId + 'static,
-    L: CanLogit + 'static,
+impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> ConfigurableSampler<UI, L>
+    for SampleTemperature<L>
 {
-    const NAME: &'static str = "temperature";
-    const DESC: Option<&'static str> = Some("Temperature sampling");
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, TID, L>] = &[SamplerOptionDefinition {
-        key: "temperature",
-        desc: Some("Temperature value. Higher values make the output more random."),
-        typ: SamplerOptionType::Float,
-        get: |slf| SamplerOptionValue::Float(slf.temperature),
-        get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.temperature),
-    }];
+}
+
+impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> HasSamplerMetadata<UI, L>
+    for SampleTemperature<L>
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "temperature",
+            description: Some("Temperature value. Higher values make the output more random."),
+            options: vec![SamplerOptionMetadata {
+                key: "temperature",
+                description: Some("Temperature value. Higher values make the output more random."),
+                option_type: SamplerOptionType::Float,
+            }],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, UI, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<UI, L>::sampler_metadata(self).options,
+                [Some(SamplerOptionValueMut::Float(&mut self.temperature))],
+            )
+        }
+    }
+
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, UI, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                HasSamplerMetadata::<UI, L>::sampler_metadata(self).options,
+                [Some(SamplerOptionValue::Float(self.temperature))],
+            )
+        }
+    }
 }

@@ -65,9 +65,13 @@ fn validate(
         .zip(expected.iter())
         .map(|(l, e)| (l.prob - e).abs())
         .collect::<Vec<_>>();
+    let lprobs = logits.iter().map(|i| i.prob).collect::<Vec<_>>();
     // println!("initial:\n{logits:?}\nexpected:\n{expected:?}\ngot:\n{result:?}");
     assert_eq!(result.len(), expected.len());
-    assert!(result.into_iter().all(|i| i < 0.00001))
+    assert!(
+        result.iter().all(|i| *i < 0.00001),
+        "{result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
+    )
 }
 
 fn validate_sm(
@@ -274,6 +278,55 @@ mod sampler {
             &[0.499977, 0.499977, 0.000023, 0.000023, 0.0],
             validate_sm,
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequence_repetition() -> Result<()> {
+        const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 0, 1, 2]));
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default().min_length(3),
+            T,
+            &[0.2, 0.2, 0.2, 0.2, 0.2],
+            validate_sm,
+        );
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .flat_penalty(5.0),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .stacking_penalty(1.25),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 4, 2, 3, 0, 1, 2]));
+
+        test_sampler(
+            &mut res,
+            &mut SampleSeqRepetition::default()
+                .min_length(3)
+                .tolerance(1)
+                .stacking_penalty(1.25),
+            T,
+            &[0.249579, 0.249579, 0.249579, 0.001681, 0.249579],
+            validate_sm,
+        );
+
         Ok(())
     }
 
@@ -486,13 +539,13 @@ mod configure {
     fn test_config_from_str1() -> Result<()> {
         let mut samp = SampleTemperature::<f32>::new(5.0);
 
-        samp = ConfigurableSampler::<u32, f32>::configure(samp, "7.0")?;
+        ConfigurableSampler::<u32, f32>::configure(&mut samp, "7.0")?;
         assert_eq!(
             ConfigurableSampler::<u32, f32>::get_option(&samp, "temperature")?,
             SamplerOptionValue::Float(7.0)
         );
-        assert!(ConfigurableSampler::<u32, f32>::configure(samp, "xyz=2.0").is_err());
-        samp = ConfigurableSampler::<u32, f32>::configure(samp, " temperature =   7.0 ")?;
+        assert!(ConfigurableSampler::<u32, f32>::configure(&mut samp, "xyz=2.0").is_err());
+        ConfigurableSampler::<u32, f32>::configure(&mut samp, " temperature =   7.0 ")?;
         assert_eq!(
             ConfigurableSampler::<u32, f32>::get_option(&samp, "temperature")?,
             SamplerOptionValue::Float(7.0)
@@ -504,10 +557,7 @@ mod configure {
     fn test_config_from_str2() -> Result<()> {
         let mut samp = SampleFreqPresence::<u32, f32>::default();
 
-        samp = ConfigurableSampler::<usize, _>::configure(
-            samp,
-            "frequency_penalty=inf : presence_penalty=-inf : last_n =69",
-        )?;
+        samp.configure("frequency_penalty=inf : presence_penalty=-inf : last_n =69")?;
         assert_eq!(
             samp.get_option("frequency_penalty")?,
             SamplerOptionValue::Float(f64::INFINITY)
@@ -517,7 +567,7 @@ mod configure {
             SamplerOptionValue::Float(f64::NEG_INFINITY)
         );
         assert_eq!(samp.get_option("last_n")?, SamplerOptionValue::UInt(69));
-        samp = ConfigurableSampler::<usize, _>::configure(samp, "f=-inf : pres=inf : last =96")?;
+        samp.configure("f=-inf : pres=inf : last =96")?;
         assert_eq!(
             samp.get_option("frequency_penalty")?,
             SamplerOptionValue::Float(f64::NEG_INFINITY)
@@ -527,6 +577,47 @@ mod configure {
             SamplerOptionValue::Float(f64::INFINITY)
         );
         assert_eq!(samp.get_option("last_n")?, SamplerOptionValue::UInt(96));
+        Ok(())
+    }
+}
+
+mod build {
+    use super::*;
+
+    use crate::configure::*;
+
+    #[test]
+    fn test_build1() -> Result<()> {
+        let mut ss: SamplerChainBuilder = SamplerChainBuilder::from([
+            (
+                "rep".to_string(),
+                SamplerSlot::new_chain(|| Box::new(SampleRepetition::new(0.0, 0)), []),
+            ),
+            (
+                "freqpres".to_string(),
+                SamplerSlot::new_single(
+                    || Box::new(SampleFreqPresence::new(0.0, 0.0, 0)),
+                    Option::<SampleFreqPresence>::None,
+                ),
+            ),
+            (
+                "greedy".to_string(),
+                SamplerSlot::new_static(|| Box::new(SampleGreedy::<u32>::new())),
+            ),
+        ]);
+
+        ss.configure("rep", "penalty=1.1:last_n=64")?;
+        ss.configure("rep", "penalty=1.1:last_n=64")?;
+        ss.configure("freqpres", "frequency=.5")?;
+        ss.configure("freqpres", "last_n=4")?;
+
+        let mut sc = ss.into_chain();
+
+        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
+        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.2, 0.2].into_iter())?;
+        let tok = sc.sample_token(&mut res, &mut logits)?;
+        assert_eq!(tok, Some(1));
+
         Ok(())
     }
 }

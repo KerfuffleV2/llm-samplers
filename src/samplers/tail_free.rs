@@ -107,37 +107,60 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
     }
 }
 
-impl<L> ConfigurableSampler<usize, L> for SampleTailFree<L>
-where
-    L: CanLogit + 'static,
-{
-    const NAME: &'static str = "tail free";
-    const DESC: Option<&'static str> = Some(concat!(
-        "An approach to sampling that attempts to ",
-        "outperform existing nucleus (top-p and top-k) methods. ",
-        "See: https://trentbrick.github.io/Tail-Free-Sampling/"
-    ));
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "z",
-            desc: Some(concat!(
-                "The z parameter. It is not entirely clear ",
-                "what a reasonable value here is but 1.0 appears to be the same ",
-                "as disabled which is similar to top-p sampling."
+impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleTailFree<L> {}
+
+impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleTailFree<L> {
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "tail free",
+            description: Some(concat!(
+                "An approach to sampling that attempts to ",
+                "outperform existing nucleus (top-p and top-k) methods. ",
+                "See: https://trentbrick.github.io/Tail-Free-Sampling/"
             )),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.z),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.z),
-        },
-        SamplerOptionDefinition {
-            key: "min_keep",
-            desc: Some(concat!(
-                "Minimum number of tokens to keep after sampling. ",
-                "Setting this to 0 is not recommended."
-            )),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.min_keep),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.min_keep),
-        },
-    ];
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "z",
+                    description: Some(concat!(
+                        "The z parameter. It is not entirely clear ",
+                        "what a reasonable value here is but 1.0 appears to be the same ",
+                        "as disabled which is similar to top-p sampling."
+                    )),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "min_keep",
+                    description: Some(concat!(
+                        "Minimum number of tokens to keep after sampling. ",
+                        "Setting this to 0 is not recommended."
+                    )),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.z)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
+                ],
+            )
+        }
+    }
+
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.z)),
+                    Some(SamplerOptionValue::UInt(self.min_keep)),
+                ],
+            )
+        }
+    }
 }

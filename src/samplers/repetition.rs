@@ -62,7 +62,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
             ..
         } = *self;
 
-        if logits.is_empty() || last_n == 0 || repetition_penalty == L::zero() {
+        if logits.is_empty() || last_n == 0 || repetition_penalty <= L::one() {
             return Ok(logits);
         }
 
@@ -88,30 +88,61 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
     }
 }
 
-impl<TID, L> ConfigurableSampler<usize, L> for SampleRepetition<TID, L>
-where
-    TID: CanTokenId + 'static,
-    L: CanLogit + 'static,
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
+    for SampleRepetition<TID, L>
 {
-    const NAME: &'static str = "repetition";
-    const DESC: Option<&'static str> = Some(concat!(
-        "Applies a penalty to tokens when they've ",
-        "already appeared within the previous last_n tokens."
-    ));
-    const OPTIONS: &'static [SamplerOptionDefinition<Self, usize, L>] = &[
-        SamplerOptionDefinition {
-            key: "penalty",
-            desc: Some("Penalty to apply to tokens that meet the repetition criteria."),
-            typ: SamplerOptionType::Float,
-            get: |slf| SamplerOptionValue::Float(slf.repetition_penalty),
-            get_mut: |slf| SamplerOptionValueMut::Float(&mut slf.repetition_penalty),
-        },
-        SamplerOptionDefinition {
-            key: "last_n",
-            desc: Some("Number of previous tokens to consider when determining repetition."),
-            typ: SamplerOptionType::UInt,
-            get: |slf| SamplerOptionValue::UInt(slf.last_n),
-            get_mut: |slf| SamplerOptionValueMut::UInt(&mut slf.last_n),
-        },
-    ];
+}
+
+impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
+    for SampleRepetition<TID, L>
+{
+    fn sampler_metadata(&self) -> SamplerMetadata {
+        SamplerMetadata {
+            name: "repetition",
+            description: Some(concat!(
+                "Applies a penalty to tokens when they've ",
+                "already appeared within the previous last_n tokens."
+            )),
+            options: vec![
+                SamplerOptionMetadata {
+                    key: "penalty",
+                    description: Some(
+                        "Penalty to apply to tokens that meet the repetition criteria.",
+                    ),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "last_n",
+                    description: Some(
+                        "Number of previous tokens to consider when determining repetition.",
+                    ),
+                    option_type: SamplerOptionType::UInt,
+                },
+            ],
+        }
+    }
+
+    fn sampler_options_mut(&mut self) -> SamplerOptions<SamplerOptionValueMut<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValueMut::Float(&mut self.repetition_penalty)),
+                    Some(SamplerOptionValueMut::UInt(&mut self.last_n)),
+                ],
+            )
+        }
+    }
+
+    fn sampler_options(&self) -> SamplerOptions<SamplerOptionValue<'_, usize, L>> {
+        unsafe {
+            SamplerOptions::build_options(
+                self.sampler_metadata().options,
+                [
+                    Some(SamplerOptionValue::Float(self.repetition_penalty)),
+                    Some(SamplerOptionValue::UInt(self.last_n)),
+                ],
+            )
+        }
+    }
 }
