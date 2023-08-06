@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign};
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign},
+};
 
 use anyhow::Result;
 use thiserror::Error;
@@ -84,6 +87,20 @@ pub enum SamplerSlot<TID = u32, L = f32, UI = usize, F = f32> {
     },
 }
 
+impl<TID: Debug, L: Debug, UI: Debug, F: Debug> Debug for SamplerSlot<TID, L, UI, F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Static { .. } => f.debug_struct("Static").finish(),
+            Self::Single { sampler, .. } => {
+                f.debug_struct("Single").field("sampler", sampler).finish()
+            }
+            Self::Chain { samplers, .. } => {
+                f.debug_struct("Chain").field("samplers", samplers).finish()
+            }
+        }
+    }
+}
+
 impl<TID, L, UI, F> SamplerSlot<TID, L, UI, F>
 where
     TID: CanTokenId,
@@ -118,8 +135,25 @@ where
             samplers: samplers.into_iter().collect(),
         }
     }
+
+    /// For optional samplers (chain, single), this function will ensure
+    /// the slot is populated with the default value. For chains this means
+    /// it will add an item if the chain is empty. For single it will set
+    /// the sampler to the default value if it's `None`.
+    pub fn ensure_present(&mut self) {
+        match self {
+            SamplerSlot::Single { factory, sampler } if sampler.is_none() => {
+                *sampler = Some(factory())
+            }
+            SamplerSlot::Chain { factory, samplers } if samplers.is_empty() => {
+                samplers.push(factory())
+            }
+            _ => (),
+        }
+    }
 }
 
+#[derive(Debug)]
 pub struct SamplerChainBuilder<TID = u32, L = f32, UI = usize, F = f32> {
     slots: Vec<(String, SamplerSlot<TID, L, UI, F>)>,
 }
