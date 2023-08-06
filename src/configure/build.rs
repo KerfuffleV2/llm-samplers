@@ -142,6 +142,20 @@ impl<TID, L, UI, F, I: IntoIterator<Item = (String, SamplerSlot<TID, L, UI, F>)>
     }
 }
 
+impl<TID, L, UI, F> std::ops::Deref for SamplerChainBuilder<TID, L, UI, F> {
+    type Target = Vec<(String, SamplerSlot<TID, L, UI, F>)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.slots
+    }
+}
+
+impl<TID, L, UI, F> std::ops::DerefMut for SamplerChainBuilder<TID, L, UI, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.slots
+    }
+}
+
 impl<TID, L, UI, F> AddAssign<(String, SamplerSlot<TID, L, UI, F>)>
     for SamplerChainBuilder<TID, L, UI, F>
 where
