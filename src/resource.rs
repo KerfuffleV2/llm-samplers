@@ -17,7 +17,7 @@ pub trait HasSamplerResources: Debug {
 
     /// Allows a sampler to immutably access the last tokens (if present).
     fn with_last_tokens(&self, _fun: &mut dyn FnMut(&[Self::TokenId])) -> Result<(), SamplerError> {
-        Err(SamplerError::MissingResource("rng".to_string()))
+        Err(SamplerError::MissingResource("last_tokens".to_string()))
     }
 
     /// Allows a sampler to mutably access the last tokens (if present).
