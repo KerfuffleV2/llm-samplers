@@ -78,10 +78,10 @@ impl<T> SamplerOptions<T> {
         });
         let Some((optdef, optidx)) = it.next() else {
             Err(ConfigureSamplerError::UnknownOrBadType(if key.is_empty() {
-                        "<unspecified>".to_string()
-                } else {
-                    key.to_string()
-                }))?
+                "<unspecified>".to_string()
+            } else {
+                key.to_string()
+            }))?
         };
 
         if it.next().is_some() {

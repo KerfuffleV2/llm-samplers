@@ -127,7 +127,9 @@ where
             ))?
         }
         let Some(n_vocab) = L::from(n_vocab) else {
-            Err(LogitsError::InternalError("Cannot convert n_vocab to sampler logits type".to_string()))?
+            Err(LogitsError::InternalError(
+                "Cannot convert n_vocab to sampler logits type".to_string(),
+            ))?
         };
         let (zero, one, two) = (L::zero(), L::one(), L::one() + L::one());
 

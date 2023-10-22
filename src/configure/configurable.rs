@@ -144,7 +144,9 @@ pub mod configurable_sampler {
         let mut opts = slf.sampler_options();
 
         let (_omd, Some(optidx)) = opts.find_option_definition(key)? else {
-            Err(ConfigureSamplerError::CannotAccessOptionValue(key.to_string()))?
+            Err(ConfigureSamplerError::CannotAccessOptionValue(
+                key.to_string(),
+            ))?
         };
 
         Ok(match opts[optidx].1.take().expect("Impossible") {
