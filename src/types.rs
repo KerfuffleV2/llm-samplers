@@ -182,7 +182,7 @@ impl<TID: CanTokenId, L: CanLogit> Logits<TID, L> {
         }
         let max_l_exp = max_l.exp();
         let cum_sum = sum / max_l_exp.powi(self.logits.len() as i32);
-        self.iter_mut().for_each(|l| l.prob = (l.prob * max_l_exp) / cum_sum);
+        self.iter_mut().for_each(|l| l.prob = (l.prob / max_l_exp) / cum_sum);
         Ok(self)
     }
 
