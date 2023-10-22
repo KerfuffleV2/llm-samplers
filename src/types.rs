@@ -170,8 +170,11 @@ impl<TID: CanTokenId, L: CanLogit> Logits<TID, L> {
         if self.is_empty() {
             return Ok(self);
         }
-        self.ensure_sorted()?;
-        let max_l = self[0].logit;
+        let max_l = if self.sorted{
+            self[0].logit
+        } else {
+            self.iter().map(|l| l.logit).fold(L::neg_infinity(), |a, b| a.max(b))
+        };
         let cum_sum = self.iter_mut().fold(L::zero(), |cs, l| {
             let p = (l.logit - max_l).exp();
             l.prob = p;
