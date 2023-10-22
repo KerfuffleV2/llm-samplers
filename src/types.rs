@@ -180,9 +180,9 @@ impl<TID: CanTokenId, L: CanLogit> Logits<TID, L> {
             l.prob = l.logit.exp();
             sum = sum + l.prob;
         }
-        let cum_sum = sum / max_l.powi(self.logits.len() as i32).exp();
-        // e^(x-y) = e^x / e^y
-        self.iter_mut().for_each(|l| l.prob = l.prob / cum_sum);
+        let max_l_exp = max_l.exp();
+        let cum_sum = sum / max_l_exp.powi(self.logits.len() as i32);
+        self.iter_mut().for_each(|l| l.prob = (l.prob * max_l_exp) / cum_sum);
         Ok(self)
     }
 
