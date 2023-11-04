@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 use crate::{configure::*, types::*};
 
 /// # Sequence Repetition
-/// This sampler penalizing repeating sequences of tokens that have already been seen within the
+/// This sampler penalizes repeating sequences of tokens that have already been seen within the
 /// `last_n` window. It is fairly complicated, so here is an example. Suppose we have generated
 /// this sequence of tokens: `1, 2, 3, 4, 1, 2, 3`
 ///

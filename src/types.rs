@@ -209,6 +209,10 @@ pub trait Sampler<TID = u32, L = f32>: Debug + Send + Sync {
         logits: &'a mut Logits<TID, L>,
     ) -> Result<&'a mut Logits<TID, L>>;
 
+    fn sample2(&mut self, _res: &dyn HasSamplerResources<TokenId = TID>) -> Result<()> {
+        Ok(())
+    }
+
     /// Returns the last sampled token id if available.
     ///
     /// A default implemenation is provided which simply returns [None].

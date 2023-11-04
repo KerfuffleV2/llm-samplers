@@ -101,8 +101,13 @@ impl<TID: CanTokenId, L: Float> SampleMirostat1<TID, L> {
 
 impl<TID, L> Sampler<TID, L> for SampleMirostat1<TID, L>
 where
-    TID: CanTokenId,
-    L: CanLogit + AsPrimitive<usize> + Default + SampleUniform + for<'a> std::ops::AddAssign<&'a L>,
+    TID: CanTokenId + 'static,
+    L: CanLogit
+        + AsPrimitive<usize>
+        + Default
+        + SampleUniform
+        + for<'a> std::ops::AddAssign<&'a L>
+        + 'static,
 {
     fn sample<'a>(
         &mut self,

@@ -50,7 +50,63 @@ impl<TID: CanTokenId, L: CanLogit> SampleRepetition<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> {
+impl<TID: CanTokenId + 'static, L: CanLogit + 'static> Sampler<TID, L>
+    for SampleRepetition<TID, L>
+{
+    fn sample2(&mut self, res: &dyn HasSamplerResources<TokenId = TID>) -> anyhow::Result<()> {
+        let Self {
+            repetition_penalty,
+            last_n,
+            ..
+        } = *self;
+
+        let logits: &mut Logits<TID, L> = res.get_resource_mut("logits")?.get_resource().unwrap();
+        println!("1: {logits:?}");
+
+        if logits.is_empty() || last_n == 0 || repetition_penalty <= L::one() {
+            return Ok(());
+        }
+
+        let tokens: &[TID] = res.get_resource("last_tokens")?.get_resource().unwrap();
+
+        let tokens = if last_n > tokens.len() {
+            tokens
+        } else {
+            &tokens[tokens.len() - last_n..]
+        };
+        logits
+            .iter_mut()
+            .filter(|l| tokens.contains(&l.token_id))
+            .for_each(|l| {
+                l.logit = if l.logit <= L::zero() {
+                    l.logit * repetition_penalty
+                } else {
+                    l.logit / repetition_penalty
+                };
+            });
+
+        // res.with_last_tokens(&mut |tokens| {
+        //     let tokens = if last_n > tokens.len() {
+        //         tokens
+        //     } else {
+        //         &tokens[tokens.len() - last_n..]
+        //     };
+        //     logits
+        //         .iter_mut()
+        //         .filter(|l| tokens.contains(&l.token_id))
+        //         .for_each(|l| {
+        //             l.logit = if l.logit <= L::zero() {
+        //                 l.logit * repetition_penalty
+        //             } else {
+        //                 l.logit / repetition_penalty
+        //             };
+        //         });
+        // })?;
+
+        logits.set_sorted(false);
+        Ok(())
+    }
+
     fn sample<'a>(
         &mut self,
         res: &mut dyn HasSamplerResources<TokenId = TID>,
@@ -61,10 +117,6 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
             last_n,
             ..
         } = *self;
-
-        if logits.is_empty() || last_n == 0 || repetition_penalty <= L::one() {
-            return Ok(logits);
-        }
 
         res.with_last_tokens(&mut |tokens| {
             let tokens = if last_n > tokens.len() {
@@ -84,7 +136,8 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> 
                 });
         })?;
 
-        Ok(logits.set_sorted(false))
+        logits.set_sorted(false);
+        Ok(logits)
     }
 }
 

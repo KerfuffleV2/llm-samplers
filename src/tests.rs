@@ -118,7 +118,7 @@ fn test_chain1() -> anyhow::Result<()> {
 #[test]
 fn test_chain2() -> Result<()> {
     use rand::SeedableRng;
-    let mut res = SimpleSamplerResources::new(
+    let mut res: SimpleSamplerResources = SimpleSamplerResources::new(
         Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
         Some(vec![]),
     );
@@ -143,7 +143,7 @@ fn test_chain2() -> Result<()> {
 #[test]
 fn test_resources() -> Result<()> {
     use rand::SeedableRng;
-    let mut res = SimpleSamplerResources::new(
+    let mut res: SimpleSamplerResources = SimpleSamplerResources::new(
         Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
         Some(vec![0u32]),
     );
@@ -155,6 +155,85 @@ fn test_resources() -> Result<()> {
     res.with_rng_mut(&mut |rng| {
         derp = rng.next_u32();
     })?;
+    Ok(())
+}
+
+#[test]
+fn test_dyn_resources() -> Result<()> {
+    use std::{
+        any::{Any, TypeId},
+        collections::HashMap,
+        marker::PhantomData,
+    };
+    #[derive(Debug)]
+    struct Meep<'a> {
+        stringval: &'a mut String,
+        sliceval: &'a mut str,
+    }
+    impl<'a> HasSamplerResources for Meep<'a> {
+        type TokenId = u32;
+        fn with_resource(
+            &self,
+            key: &str,
+            fun: &mut dyn FnMut(&ResourceValue) -> Option<Box<dyn Any>>,
+        ) -> Result<Option<Box<dyn Any>>, SamplerError> {
+            Ok(match key {
+                "string" => fun(&ResourceValue::Any(self.stringval as &dyn Any)),
+                "slice" => fun(&ResourceValue::AnySlice(AnySlice::from_slice(
+                    self.sliceval.as_bytes(),
+                ))),
+                _ => return Err(SamplerError::MissingResource(format!("dyn({key:?})"))),
+            })
+        }
+
+        fn with_resource_mut(
+            &mut self,
+            key: &str,
+            fun: &mut dyn FnMut(&mut ResourceValue) -> Option<Box<dyn Any>>,
+        ) -> Result<Option<Box<dyn Any>>, SamplerError> {
+            Ok(match key {
+                "string" => fun(&mut ResourceValue::AnyMut(self.stringval as &mut dyn Any)),
+                "slice" => fun(&mut ResourceValue::AnySliceMut(
+                    AnySliceMut::from_slice_mut(unsafe { self.sliceval.as_bytes_mut() }),
+                )),
+                _ => return Err(SamplerError::MissingResource(format!("dyn({key:?})"))),
+            })
+        }
+    }
+
+    let mut string1 = String::from("himom");
+    let mut string2 = String::from("derp");
+    let mut res = Meep {
+        stringval: &mut string1,
+        sliceval: string2.as_mut_str(),
+    };
+    assert!(res.with_resource("nope", &mut |_rv| None).is_err());
+    res.with_resource("string", &mut |rv| {
+        let val: &String = rv.get_resource().expect("omg");
+        assert_eq!(val, "himom");
+        None
+    })?;
+    res.with_resource_mut("string", &mut |rv| {
+        let val: &mut String = rv.get_resource().expect("omg");
+        assert_eq!(val, "himom");
+        val.make_ascii_uppercase();
+        None
+    })?;
+    res.with_resource("slice", &mut |rv| {
+        let val: &[u8] = rv.get_resource().expect("omg");
+        assert_eq!(val, b"derp");
+        None
+    })?;
+
+    res.with_resource_mut("slice", &mut |rv| {
+        let val: &mut [u8] = rv.get_resource().expect("omg");
+        assert_eq!(val, b"derp");
+        val[0] = b'z';
+        None
+    })?;
+    assert_eq!(string1, "HIMOM");
+    assert_eq!(string2, "zerp");
+
     Ok(())
 }
 
@@ -210,7 +289,7 @@ mod sampler {
     fn test_repetition() -> Result<()> {
         const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
         const TER2: &[f32] = &[0.5, 0.5, 0.0, 0.0, 0.0];
-        let mut res = SimpleSamplerResources::new(None, Some(vec![0]));
+        let mut res: SimpleSamplerResources = SimpleSamplerResources::new(None, Some(vec![0]));
 
         test_sampler(
             &mut res,
@@ -247,7 +326,7 @@ mod sampler {
     #[test]
     fn test_freq_presence() -> Result<()> {
         const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
-        let mut res = SimpleSamplerResources::new(None, Some(vec![0]));
+        let mut res: SimpleSamplerResources = SimpleSamplerResources::new(None, Some(vec![0]));
 
         test_sampler(
             &mut res,
@@ -284,7 +363,8 @@ mod sampler {
     #[test]
     fn test_sequence_repetition() -> Result<()> {
         const T: &[f32] = &[0.2, 0.2, 0.2, 0.2, 0.2];
-        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 0, 1, 2]));
+        let mut res: SimpleSamplerResources =
+            SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 0, 1, 2]));
 
         test_sampler(
             &mut res,
@@ -314,7 +394,8 @@ mod sampler {
             validate_sm,
         );
 
-        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 4, 2, 3, 0, 1, 2]));
+        let mut res: SimpleSamplerResources =
+            SimpleSamplerResources::new(None, Some(vec![0, 4, 2, 3, 0, 1, 2]));
 
         test_sampler(
             &mut res,
@@ -401,7 +482,7 @@ mod sampler {
     #[test]
     fn test_rand_distrib() -> Result<()> {
         use rand::SeedableRng;
-        let mut res = SimpleSamplerResources::new(
+        let mut res: SimpleSamplerResources = SimpleSamplerResources::new(
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
@@ -422,7 +503,7 @@ mod sampler {
     #[test]
     fn test_mirostat1() -> Result<()> {
         use rand::SeedableRng;
-        let mut res = SimpleSamplerResources::new(
+        let mut res: SimpleSamplerResources = SimpleSamplerResources::new(
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
@@ -444,7 +525,7 @@ mod sampler {
     #[test]
     fn test_mirostat2() -> Result<()> {
         use rand::SeedableRng;
-        let mut res = SimpleSamplerResources::new(
+        let mut res: SimpleSamplerResources = SimpleSamplerResources::new(
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
@@ -613,7 +694,8 @@ mod build {
 
         let mut sc = ss.into_chain();
 
-        let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
+        let mut res: SimpleSamplerResources =
+            SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
         let mut logits = Logits::try_from_iter([0.2, 0.2, 0.2, 0.2].into_iter())?;
         let tok = sc.sample_token(&mut res, &mut logits)?;
         assert_eq!(tok, Some(1));
