@@ -341,7 +341,7 @@ where
             .max(1);
         logits.truncate(new_size);
         logits.softmax()?;
-        self.rd_sampler.sample(res, logits)?;
+        // self.rd_sampler.sample(res, logits)?;
 
         if let Some(tid) = self.rd_sampler.sample_token(res, logits)? {
             let logit = logits.iter().find(|l| l.token_id == tid).ok_or_else(|| {
