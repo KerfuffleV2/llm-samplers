@@ -29,6 +29,7 @@ to the top K entries), it might actually pick a token or both!
 11. Top-K
 12. Top-P
 13. Min-P
+14. Top-A
 
 Real descriptions may (or may not happen) eventually. For now, you can check out the llama.cpp `main` example README for a brief overview of some of the types of sampler: https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#generation-flags
 

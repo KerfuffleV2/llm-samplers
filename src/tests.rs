@@ -62,10 +62,14 @@ fn validate(_sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) 
         .map(|(l, e)| (l.prob - e).abs())
         .collect::<Vec<_>>();
     let lprobs = logits.iter().map(|i| i.prob).collect::<Vec<_>>();
-    assert_eq!(result.len(), expected.len());
+    assert_eq!(
+        result.len(),
+        expected.len(),
+        "result length mismatch: {lprobs:?} vs expected {expected:?}"
+    );
     assert!(
         result.iter().all(|i| *i < 0.00001),
-        "{result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
+        "result {result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
     )
 }
 
@@ -73,6 +77,15 @@ fn validate_sm(sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]
     validate(
         sampler,
         logits.ensure_softmax().expect("Softmax failed"),
+        expected,
+    );
+}
+
+#[allow(dead_code)]
+fn validate_sorted(sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
+    validate(
+        sampler,
+        logits.ensure_sorted().expect("Sort failed"),
         expected,
     );
 }
@@ -197,25 +210,60 @@ mod sampler {
 
     #[test]
     fn test_min_p() {
-        pub const T1: &[f32] = &[2.0, 1.0, 0.5, 0.25, 0.1];
-        pub const TE1: &[f32] = &[0.5194805, 0.25974026, 0.12987013, 0.064935066, 0.025974026];
+        const TINP: &[f32] = &[2.0, 1.0, 0.5, 0.25, 0.1];
+        const TEXP: &[f32] = &[0.5194805, 0.25974026, 0.12987013, 0.064935066, 0.025974026];
 
         let mut res = NilSamplerResources;
         test_sampler(
             &mut res,
             &mut SampleMinP::new(2.0, 1),
-            T1,
-            &TE1[0..1],
+            TINP,
+            &TEXP[0..1],
             validate,
         );
         test_sampler(
             &mut res,
             &mut SampleMinP::new(0.2, 1),
-            T1,
-            &TE1[0..3],
+            TINP,
+            &TEXP[0..3],
             validate,
         );
-        test_sampler_no_sm(&mut res, &mut SampleMinP::new(0.0001, 1), T1, TE1, validate);
+        test_sampler(
+            &mut res,
+            &mut SampleMinP::new(0.0001, 1),
+            TINP,
+            TEXP,
+            validate,
+        );
+    }
+
+    #[test]
+    fn test_top_a() {
+        const TINP: &[f32] = &[2.0, 1.0, 0.5, 0.25, 0.1];
+        const TEXP: &[f32] = &[0.5194805, 0.25974026, 0.12987013, 0.064935066, 0.025974026];
+
+        let mut res = NilSamplerResources;
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(8.0, 2.0, 1),
+            TINP,
+            &TEXP[0..1],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(0.45, 2.0, 1),
+            TINP,
+            &TEXP[0..3],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(0.0001, 2.0, 1),
+            TINP,
+            TEXP,
+            validate,
+        );
     }
 
     #[test]

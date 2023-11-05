@@ -1,13 +1,11 @@
 use crate::{configure::*, types::*};
 
 /// # Min-P sampling
-/// This sampler prunes tokens that don't meet a certain percentage
-/// of the most probable token. For example if `p` is `0.05` then
-/// after `min_keep` is satisfied, other tokens must be at least 5%
-/// of the most probable token.
+/// This sampler prunes tokens that don't meet a threshold based
+/// on the most probable token. The formula is `a1 * pow(max_prob, a2)`.
 ///
-/// Credit to @kalomaze on GitHub for design. See this link for a more in-depth
-/// explanation: https://github.com/ggerganov/llama.cpp/issues/3483#issuecomment-1783920998
+/// Credit to @BlinkDL on GitHub for design. See this link for a more in-depth
+/// explanation: https://github.com/BlinkDL/RWKV-LM#the-top-a-sampling-method
 
 ///
 /// **Properties**:
@@ -15,25 +13,28 @@ use crate::{configure::*, types::*};
 ///
 /// **Parameters**:
 /// - `min_keep`: Minimum number of entries to keep. (default: `1`)
-/// - `p`: Threshold value. Use `0.0` to disable. (default: `0.9`)
+/// - `a1`: Threshold scale. Use `0.0` to disable. (default: `0.2`)
+/// - `a2`: Threshold power. Use `0.0` to disable. (default: `2.0`)
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SampleMinP {
-    pub(crate) p: L,
+pub struct SampleTopA {
+    pub(crate) a1: L,
+    pub(crate) a2: L,
     pub(crate) min_keep: usize,
 }
 
-impl Default for SampleMinP {
+impl Default for SampleTopA {
     fn default() -> Self {
         Self {
-            p: 0.05f32,
+            a1: 0.2,
+            a2: 2.0,
             min_keep: 1,
         }
     }
 }
 
-impl SampleMinP {
-    pub fn new(p: L, min_keep: usize) -> Self {
-        Self { p, min_keep }
+impl SampleTopA {
+    pub fn new(a1: L, a2: L, min_keep: usize) -> Self {
+        Self { a1, a2, min_keep }
     }
 
     pub fn min_keep(mut self, val: usize) -> Self {
@@ -41,20 +42,25 @@ impl SampleMinP {
         self
     }
 
-    pub fn p(mut self, val: L) -> Self {
-        self.p = val;
+    pub fn a1(mut self, val: L) -> Self {
+        self.a1 = val;
+        self
+    }
+
+    pub fn a2(mut self, val: L) -> Self {
+        self.a2 = val;
         self
     }
 }
 
-impl Sampler for SampleMinP {
+impl Sampler for SampleTopA {
     fn sample<'a>(
         &mut self,
         _res: &mut dyn HasSamplerResources,
         logits: &'a mut Logits,
     ) -> anyhow::Result<&'a mut Logits> {
-        let Self { p, min_keep } = *self;
-        if p == 0f32 || logits.is_empty() {
+        let Self { a1, a2, min_keep } = *self;
+        if logits.is_empty() || a1 == 0.0 || a2 == 0.0 {
             return Ok(logits);
         }
 
@@ -64,7 +70,7 @@ impl Sampler for SampleMinP {
             return Ok(logits);
         }
 
-        let threshold = logits[0].prob * p;
+        let threshold = logits[0].prob.powf(a2) * a1;
         let last_idx = logits
             .iter()
             .enumerate()
@@ -80,22 +86,25 @@ impl Sampler for SampleMinP {
     }
 }
 
-impl ConfigurableSampler<usize, L> for SampleMinP {}
+impl ConfigurableSampler<usize, L> for SampleTopA {}
 
-impl HasSamplerMetadata<usize, L> for SampleMinP {
+impl HasSamplerMetadata<usize, L> for SampleTopA {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
-            name: "min-p",
+            name: "top-p",
             description: Some(concat!(
-                "This sampler prunes tokens that don't meet a certain percentage",
-                " of the most probable token. For example if `p` is `0.05` then",
-                " after `min_keep` is satisfied, other tokens must be at least 5%",
-                " of the most probable token.",
+                "This sampler prunes tokens that don't meet a threshold based",
+                " on the most probable token. The formula is `a1 * pow(max_prob, a2)`",
             )),
             options: vec![
                 SamplerOptionMetadata {
-                    key: "p",
-                    description: Some("Threshold value."),
+                    key: "a1",
+                    description: Some("Threshold multiplier."),
+                    option_type: SamplerOptionType::Float,
+                },
+                SamplerOptionMetadata {
+                    key: "a2",
+                    description: Some("Threshold power."),
                     option_type: SamplerOptionType::Float,
                 },
                 SamplerOptionMetadata {
@@ -115,7 +124,8 @@ impl HasSamplerMetadata<usize, L> for SampleMinP {
             SamplerOptions::build_options(
                 self.sampler_metadata().options,
                 [
-                    Some(SamplerOptionValueMut::Float(&mut self.p)),
+                    Some(SamplerOptionValueMut::Float(&mut self.a1)),
+                    Some(SamplerOptionValueMut::Float(&mut self.a2)),
                     Some(SamplerOptionValueMut::UInt(&mut self.min_keep)),
                 ],
             )
@@ -127,7 +137,8 @@ impl HasSamplerMetadata<usize, L> for SampleMinP {
             SamplerOptions::build_options(
                 self.sampler_metadata().options,
                 [
-                    Some(SamplerOptionValue::Float(self.p)),
+                    Some(SamplerOptionValue::Float(self.a1)),
+                    Some(SamplerOptionValue::Float(self.a2)),
                     Some(SamplerOptionValue::UInt(self.min_keep)),
                 ],
             )

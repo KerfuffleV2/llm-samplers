@@ -9,12 +9,13 @@ pub mod repetition;
 pub mod sequence_repetition;
 pub mod tail_free;
 pub mod temperature;
+pub mod top_a;
 pub mod top_k;
 pub mod top_p;
 
 #[doc(inline)]
 pub use self::{
     flat_bias::*, freq_presence::*, greedy::*, locally_typical::*, min_p::*, mirostat::*,
-    rand_distrib::*, repetition::*, sequence_repetition::*, tail_free::*, temperature::*, top_k::*,
-    top_p::*,
+    rand_distrib::*, repetition::*, sequence_repetition::*, tail_free::*, temperature::*, top_a::*,
+    top_k::*, top_p::*,
 };
