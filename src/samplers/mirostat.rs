@@ -123,7 +123,7 @@ impl Sampler for SampleMirostat1 {
         }
         let n_vocab = n_vocab as L;
 
-        logits.softmax()?;
+        logits.ensure_softmax()?;
         let (sum_ti_bi, sum_ti_sq) = {
             let mut idx = 0f32;
             logits
@@ -317,15 +317,18 @@ impl Sampler for SampleMirostat2 {
 
         let Self { tau, eta, mu, .. } = *self;
 
-        logits.softmax()?;
+        logits.ensure_softmax()?;
         let new_size = logits
             .iter()
             .enumerate()
             .find_map(|(idx, l)| (-l.prob.log2() > mu).then_some(idx))
             .unwrap_or_default()
             .max(1);
-        logits.truncate(new_size);
-        logits.softmax()?;
+        if new_size != logits.len() {
+            logits.truncate(new_size);
+            logits.set_softmax(false);
+        }
+        logits.ensure_softmax()?;
 
         if let Some(tid) = self.rd_sampler.sample_token(res, logits)? {
             let logit = logits.iter().find(|l| l.token_id == tid).ok_or_else(|| {

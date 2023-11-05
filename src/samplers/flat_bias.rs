@@ -49,14 +49,19 @@ impl Sampler for SampleFlatBias {
         _res: &mut dyn HasSamplerResources,
         logits: &'a mut Logits,
     ) -> anyhow::Result<&'a mut Logits> {
-        let valid_tid = 0..logits.len();
-        self.bias.iter().for_each(|(tid, bv)| {
-            let tid = *tid as usize;
-            if valid_tid.contains(&tid) {
-                let l = &mut logits[tid].logit;
-                *l += *bv;
+        let bi = self.bias.iter();
+        let mut changed = 0;
+
+        logits.iter_mut().for_each(|l| {
+            if let Some((_tid, bv)) = bi.clone().find(|(tid, _bv)| tid == &l.token_id) {
+                l.logit += bv;
+                changed += 1;
             }
         });
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }
@@ -72,7 +77,7 @@ impl<UI: ConfigurableNumValue, F: ConfigurableNumValue> HasSamplerMetadata<UI, F
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
-            name: "sequence repetition",
+            name: "flat bias",
             description: Some(concat!(
                 "Used to bias specific tokens by either increasing or ",
                 "decreasing their probability. ",

@@ -81,6 +81,7 @@ impl Sampler for SampleFreqPresence {
         }
 
         let mut counts = HashMap::<TID, L>::default();
+        let mut changed = 0;
 
         res.with_last_tokens(&mut |orig_tokens| {
             let tokens = if last_n > orig_tokens.len() {
@@ -96,12 +97,20 @@ impl Sampler for SampleFreqPresence {
         })?;
 
         logits.iter_mut().for_each(|l| {
-            if let Some(cnt) = counts.get(&l.token_id) {
+            let Some(cnt) = counts.get(&l.token_id) else {
+                return;
+            };
+            if cnt > &0.0 {
                 l.logit -= *cnt * frequency_penalty
                     + if cnt > &0f32 { 1f32 } else { 0f32 } * presence_penalty;
+                changed += 1;
             }
         });
-        Ok(logits.set_sorted(false))
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
+        Ok(logits)
     }
 }
 

@@ -51,7 +51,7 @@ impl Sampler for SampleTopP {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
-        logits.softmax()?;
+        logits.ensure_softmax()?;
 
         let mut cum_sum = 0f32;
         let last_idx =
@@ -68,7 +68,10 @@ impl Sampler for SampleTopP {
                 Continue(i) => i,
                 Break(i) => i,
             };
-        logits.truncate(last_idx);
+        if last_idx != logits.len() {
+            logits.truncate(last_idx);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }

@@ -60,7 +60,7 @@ impl Sampler for SampleLocallyTypical {
 
         let Self { p, min_keep } = *self;
         let min_keep = if min_keep == 0 { 0 } else { min_keep - 1 };
-        logits.softmax()?;
+        logits.ensure_softmax()?;
 
         let ent = logits
             .iter()
@@ -98,6 +98,8 @@ impl Sampler for SampleLocallyTypical {
             Break(i) => i,
         };
         logits.clear();
+        logits.set_sorted(false);
+        logits.set_softmax(false);
         shifted
             .into_iter()
             .take(last_idx)

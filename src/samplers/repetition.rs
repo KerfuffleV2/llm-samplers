@@ -66,12 +66,14 @@ impl Sampler for SampleRepetition {
             return Ok(logits);
         }
 
+        let mut changed = 0;
         res.with_last_tokens(&mut |tokens| {
             let tokens = if last_n > tokens.len() {
                 tokens
             } else {
                 &tokens[tokens.len() - last_n..]
             };
+
             logits
                 .iter_mut()
                 .filter(|l| tokens.contains(&l.token_id))
@@ -81,10 +83,15 @@ impl Sampler for SampleRepetition {
                     } else {
                         l.logit / repetition_penalty
                     };
+                    changed += 1;
                 });
         })?;
 
-        Ok(logits.set_sorted(false))
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
+        Ok(logits)
     }
 }
 

@@ -58,7 +58,7 @@ impl Sampler for SampleMinP {
             return Ok(logits);
         }
 
-        logits.softmax()?;
+        logits.ensure_softmax()?;
 
         if logits.len() <= min_keep {
             return Ok(logits);
@@ -72,7 +72,10 @@ impl Sampler for SampleMinP {
             .find(|(_, l)| l.prob < threshold)
             .map(|(idx, _)| idx)
             .unwrap_or_else(|| logits.len());
-        logits.truncate(last_idx);
+        if last_idx != logits.len() {
+            logits.truncate(last_idx);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }

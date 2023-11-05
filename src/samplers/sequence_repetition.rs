@@ -241,20 +241,30 @@ impl Sampler for SampleSeqRepetition {
                 });
         })?;
 
+        let mut changed = 0;
+
         for (tid, seqlen) in penalize.into_iter() {
-            let tid = tid as usize;
-            if logits.len() <= tid {
-                Err(SamplerError::InternalError(String::from(
-                    "TID out of range for logits",
-                )))?
-            }
+            let Some(idx) = logits
+                .iter()
+                .enumerate()
+                .find(|(_, l)| l.token_id == tid)
+                .map(|(idx, _)| idx)
+            else {
+                continue;
+            };
+
             let seqlen = seqlen as L;
-            let l = &mut logits[tid].logit;
+            let l = &mut logits[idx].logit;
 
             *l -=
                 seqlen * stacking_penalty + if seqlen > 0f32 { 1f32 } else { 0f32 } * flat_penalty;
+            changed += 1;
         }
 
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }

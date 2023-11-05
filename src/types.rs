@@ -75,6 +75,7 @@ pub struct Logit {
 /// For convenience, this can [Deref] to the internal [Vec].
 pub struct Logits {
     sorted: bool,
+    has_softmax: bool,
     logits: Vec<Logit>,
 }
 
@@ -99,6 +100,7 @@ impl Logits {
         let mut tid = 0;
         Ok(Self {
             sorted: false,
+            has_softmax: false,
             logits: it
                 .into_iter()
                 .enumerate()
@@ -139,6 +141,17 @@ impl Logits {
         self
     }
 
+    /// Get the softmax flag.
+    pub fn get_softmax(&self) -> bool {
+        self.has_softmax
+    }
+
+    /// Set the softmax flag.
+    pub fn set_softmax(&mut self, has_softmax: bool) -> &mut Self {
+        self.has_softmax = has_softmax;
+        self
+    }
+
     /// Ensure the [Logits] are sorted. Generally not necessary to call this directly.
     pub fn ensure_sorted(&mut self) -> Result<&mut Self> {
         if self.get_sorted() {
@@ -159,9 +172,11 @@ impl Logits {
         Ok(self)
     }
 
-    /// Applies the softmax function to the [Logits].
-    pub fn softmax(&mut self) -> Result<&mut Self> {
-        if self.is_empty() {
+    /// Ensure the softmax function has been applied to the [Logits].
+    pub fn ensure_softmax(&mut self) -> Result<&mut Self> {
+        if self.is_empty() || self.has_softmax {
+            self.has_softmax = true;
+            self.sorted = true;
             return Ok(self);
         }
         self.ensure_sorted()?;
@@ -172,6 +187,7 @@ impl Logits {
             cs + p
         });
         self.iter_mut().for_each(|l| l.prob /= cum_sum);
+        self.has_softmax = true;
         Ok(self)
     }
 

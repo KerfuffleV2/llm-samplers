@@ -41,6 +41,7 @@ impl Sampler for SampleTemperature {
         let temp = self.temperature;
         if temp != 0f32 {
             logits.iter_mut().for_each(|l| l.logit /= temp);
+            logits.set_softmax(false);
         }
         Ok(logits)
     }

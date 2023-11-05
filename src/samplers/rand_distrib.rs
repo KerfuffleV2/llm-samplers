@@ -38,7 +38,7 @@ impl Sampler for SampleRandDistrib {
         if logits.is_empty() {
             return Ok(logits);
         }
-        logits.softmax()?;
+        logits.ensure_softmax()?;
         let dist = WeightedIndex::new(logits.iter().map(|l| l.prob))
             .map_err(SamplerError::RandWeightedError)?;
         res.with_rng_mut(&mut |r| {

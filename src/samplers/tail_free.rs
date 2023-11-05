@@ -58,7 +58,7 @@ impl Sampler for SampleTailFree {
             return Ok(logits);
         }
 
-        logits.softmax()?;
+        logits.ensure_softmax()?;
 
         let mut fderivs = logits
             .iter()
@@ -102,7 +102,10 @@ impl Sampler for SampleTailFree {
                 Continue(i) => i,
                 Break(i) => i,
             };
-        logits.truncate(last_idx);
+        if last_idx != logits.len() {
+            logits.truncate(last_idx);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }

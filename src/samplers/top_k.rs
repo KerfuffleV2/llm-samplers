@@ -45,7 +45,11 @@ impl Sampler for SampleTopK {
         logits: &'a mut Logits,
     ) -> anyhow::Result<&'a mut Logits> {
         let k = self.k.max(self.min_keep).min(logits.len());
-        logits.ensure_sorted()?.truncate(k);
+        logits.ensure_sorted()?;
+        if k != logits.len() {
+            logits.truncate(k);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }

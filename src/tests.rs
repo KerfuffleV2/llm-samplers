@@ -19,7 +19,7 @@ fn test_sampler_ll<S: Sampler>(
     let mut logits = Logits::try_from_iter(input.iter().map(|i| if use_ln { i.ln() } else { *i }))
         .expect("Bad logits");
     if use_sm {
-        logits.softmax().expect("Softmax failed");
+        logits.ensure_softmax().expect("Softmax failed");
     }
     let result_logits = sampler.sample(res, &mut logits).expect("Sampler error");
     vf(sampler, result_logits, expected)
@@ -70,7 +70,11 @@ fn validate(_sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) 
 }
 
 fn validate_sm(sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
-    validate(sampler, logits.softmax().expect("Softmax failed"), expected);
+    validate(
+        sampler,
+        logits.ensure_softmax().expect("Softmax failed"),
+        expected,
+    );
 }
 
 fn validate_eq(_sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
