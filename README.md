@@ -8,6 +8,8 @@ Extremely early in development, poorly tested. You can look at [`src/tests.rs`](
 
 Also a fairly simple example of using Mirostat with my RWKV project here: https://github.com/KerfuffleV2/smolrsrwkv/blob/60b8e8bfe64f157f1800445128af3b4adbbc64c1/smolrwkv-cli/src/main.rs#L139-L164
 
+For notes on migrating from 0.0.6 to 0.0.7, see below.
+
 ## Samplers
 
 Using the term "sampler" here loosely, perhaps it should be renamed in the future. Right now a "sampler"
@@ -26,6 +28,7 @@ to the top K entries), it might actually pick a token or both!
 10. Temperature
 11. Top-K
 12. Top-P
+13. Min-P
 
 Real descriptions may (or may not happen) eventually. For now, you can check out the llama.cpp `main` example README for a brief overview of some of the types of sampler: https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#generation-flags
 
@@ -115,6 +118,16 @@ Real descriptions may (or may not happen) eventually. For now, you can check out
      Ok(())
  }
  ```
+
+ ## 0.0.6 to 0.0.7 Migration
+
+Unfortunately, this involved some breaking changes. Basically, the samplers and chains no
+longer take token id and logits type variables anymore. You can have your token ids in any
+color you like, as long as it's `u32`. Same for logits: they're always `f32` now.
+
+For example, where previously you would have done `SampleRandDistrib::<u32>::new` or `SampleMirostat2::<u32, f32>::new`,
+you only need `SampleRandDistrib::new`, `SampleMirostat2::new`. Same for creating chains: `SamplerChain::<u32, f32>::new` will
+only need `SamplerChain::new`.
 
 ## Links
 
