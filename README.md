@@ -60,7 +60,7 @@ Real descriptions may (or may not happen) eventually. For now, you can check out
          Some(1)
      );
 
-     // () also implements HasSamplerResources<TokenId = u32>
+     // () also implements HasSamplerResources
      // so you could use &mut () here.
      assert_eq!(sc.sample_token(&mut (), &mut logits)?, Some(1));
      Ok(())
@@ -87,8 +87,7 @@ Real descriptions may (or may not happen) eventually. For now, you can check out
      let mut logits = Logits::try_from_iter(example_logits.into_iter())?;
      let mut logits2 = logits.clone();
 
-     // SamplerChain with u32 token id type and f32 logit type.
-     let mut sc = SamplerChain::<u32, f32>::new()
+     let mut sc = SamplerChain::new()
          // Bias logits (this example sets bias for token id 3 to -inf)
          + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
          // Apply a repetition penalty.

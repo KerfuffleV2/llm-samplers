@@ -11,22 +11,22 @@ use crate::{configure::*, types::*};
 /// **Parameters**:
 /// - `min_keep`: Minimum number of entries to keep. (default: `1`)
 /// - `p`: Target value. (default: `0.9`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTopP<L = f32> {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SampleTopP {
     pub(crate) p: L,
     pub(crate) min_keep: usize,
 }
 
-impl<L: CanLogit> Default for SampleTopP<L> {
+impl Default for SampleTopP {
     fn default() -> Self {
         Self {
-            p: L::from(0.9f32).expect("Impossible: Couldn't convert f32 to Float"),
+            p: 0.9f32,
             min_keep: 1,
         }
     }
 }
 
-impl<L: CanLogit> SampleTopP<L> {
+impl SampleTopP {
     pub fn new(p: L, min_keep: usize) -> Self {
         Self { p, min_keep }
     }
@@ -42,24 +42,24 @@ impl<L: CanLogit> SampleTopP<L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
+impl Sampler for SampleTopP {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
         logits.softmax()?;
 
-        let mut cum_sum = L::zero();
+        let mut cum_sum = 0f32;
         let last_idx =
             match logits
                 .iter()
                 .enumerate()
                 .try_fold(logits.len(), |last_idx, (idx, logit)| {
-                    cum_sum = cum_sum + logit.prob;
+                    cum_sum += logit.prob;
                     if cum_sum >= p && idx + 1 >= min_keep {
                         return Break(idx + 1);
                     }
@@ -73,9 +73,9 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopP<L> {
     }
 }
 
-impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleTopP<L> {}
+impl ConfigurableSampler<usize, L> for SampleTopP {}
 
-impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleTopP<L> {
+impl HasSamplerMetadata<usize, L> for SampleTopP {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "top-p",

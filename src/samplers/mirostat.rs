@@ -2,8 +2,7 @@
 use std::fmt::Debug;
 
 use anyhow::Result;
-use num_traits::{AsPrimitive, Float};
-use rand::distributions::uniform::SampleUniform;
+use num_traits::AsPrimitive;
 
 use crate::{
     configure::*,
@@ -29,24 +28,24 @@ use crate::{
 /// - `m`: Unknown. Can be set manually after construction. (default: `100`)
 /// - `mu`: Current learning state. Can be set manually after construction. (default: `tau * 2`)
 #[derive(Debug, Clone)]
-pub struct SampleMirostat1<TID = u32, L = f32> {
+pub struct SampleMirostat1 {
     pub(crate) n_vocab: usize,
     pub(crate) m: usize,
     pub(crate) tau: L,
     pub(crate) eta: L,
     pub(crate) mu: L,
     pub(crate) token: Option<TID>,
-    rd_sampler: SampleRandDistrib<TID>,
+    rd_sampler: SampleRandDistrib,
 }
 
-impl<TID: CanTokenId, L: Float> Default for SampleMirostat1<TID, L> {
+impl Default for SampleMirostat1 {
     fn default() -> Self {
-        let five = L::one() + L::one() + L::one() + L::one() + L::one();
-        let ten = five * (L::one() + L::one());
+        let five = 1f32 + 1f32 + 1f32 + 1f32 + 1f32;
+        let ten = five * (1f32 + 1f32);
 
         Self {
             m: 100,
-            eta: L::one() / ten,
+            eta: 1f32 / ten,
             tau: five,
             mu: ten,
             token: None,
@@ -56,14 +55,14 @@ impl<TID: CanTokenId, L: Float> Default for SampleMirostat1<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: Float> SampleMirostat1<TID, L> {
+impl SampleMirostat1 {
     pub fn new(n_vocab: usize, tau: L, eta: L) -> Self {
         Self {
             n_vocab,
             tau,
             eta,
             m: 100,
-            mu: tau * (L::one() + L::one()),
+            mu: tau * (1f32 + 1f32),
             rd_sampler: SampleRandDistrib::new(),
             token: None,
         }
@@ -84,7 +83,7 @@ impl<TID: CanTokenId, L: Float> SampleMirostat1<TID, L> {
     /// value for mu, be sure to set it after tau.
     pub fn tau(mut self, val: L) -> Self {
         self.tau = val;
-        self.mu = val * (L::one() + L::one());
+        self.mu = val * (1f32 + 1f32);
         self
     }
 
@@ -99,16 +98,12 @@ impl<TID: CanTokenId, L: Float> SampleMirostat1<TID, L> {
     }
 }
 
-impl<TID, L> Sampler<TID, L> for SampleMirostat1<TID, L>
-where
-    TID: CanTokenId,
-    L: CanLogit + AsPrimitive<usize> + Default + SampleUniform + for<'a> std::ops::AddAssign<&'a L>,
-{
+impl Sampler for SampleMirostat1 {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let Self {
             n_vocab,
             tau,
@@ -126,29 +121,27 @@ where
                 "Mirostat v1 sampler requires n_vocab".to_string(),
             ))?
         }
-        let Some(n_vocab) = L::from(n_vocab) else {
-            Err(LogitsError::InternalError("Cannot convert n_vocab to sampler logits type".to_string()))?
-        };
-        let (zero, one, two) = (L::zero(), L::one(), L::one() + L::one());
+        let n_vocab = n_vocab as L;
 
         logits.softmax()?;
         let (sum_ti_bi, sum_ti_sq) = {
-            let mut idx = zero;
+            let mut idx = 0f32;
             logits
                 .iter()
                 .zip(logits.iter().skip(1))
                 .take((m - 1).min(logits.len() - 1))
-                .fold((zero, zero), |(sum_ti_bi, sum_ti_sq), (l, l_next)| {
-                    let t_i = ((idx + two) / (idx + one)).ln();
+                .fold((0f32, 0f32), |(sum_ti_bi, sum_ti_sq), (l, l_next)| {
+                    let t_i = ((idx + 2f32) / (idx + 1f32)).ln();
                     let b_i = l.prob / l_next.prob;
                     let result = (sum_ti_bi + t_i * b_i, sum_ti_sq + t_i * t_i);
-                    idx = idx + one;
+                    idx += 1f32;
                     result
                 })
         };
         let s_hat = sum_ti_bi / sum_ti_sq;
-        let epsilon_hat = s_hat - one;
-        let k = (epsilon_hat * mu.powf(two) / one - n_vocab.powf(-epsilon_hat)).powf(one / s_hat);
+        let epsilon_hat = s_hat - 1f32;
+        let k =
+            (epsilon_hat * mu.powf(2f32) / 1f32 - n_vocab.powf(-epsilon_hat)).powf(1f32 / s_hat);
         logits.sample(res, &mut SampleTopK::new(k.as_(), 1))?;
 
         if let Some(tid) = self.rd_sampler.sample_token(res, logits)? {
@@ -156,7 +149,7 @@ where
                 SamplerError::InternalError(String::from("Impossible: sample token not in logits?"))
             })?;
 
-            self.mu = self.mu - (eta * (-logit.prob.log2() - tau));
+            self.mu -= eta * (-logit.prob.log2() - tau);
             self.token = Some(tid);
         }
         Ok(logits)
@@ -167,20 +160,16 @@ where
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue + Float> ConfigurableSampler<usize, L>
-    for SampleMirostat1<TID, L>
-{
+impl ConfigurableSampler<usize, L> for SampleMirostat1 {
     fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
         if md.key == "tau" {
-            self.mu = self.tau * (L::one() + L::one());
+            self.mu = self.tau * (1f32 + 1f32);
         }
         Ok(())
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
-    for SampleMirostat1<TID, L>
-{
+impl HasSamplerMetadata<usize, L> for SampleMirostat1 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "mirostat 1",
@@ -266,16 +255,16 @@ pub struct SampleMirostat2<TID = u32, L = f32> {
     pub(crate) eta: L,
     pub(crate) mu: L,
     pub(crate) token: Option<TID>,
-    rd_sampler: SampleRandDistrib<TID>,
+    rd_sampler: SampleRandDistrib,
 }
 
-impl<TID: CanTokenId, L: Float> Default for SampleMirostat2<TID, L> {
+impl Default for SampleMirostat2 {
     fn default() -> Self {
-        let five = L::one() + L::one() + L::one() + L::one() + L::one();
-        let ten = five * (L::one() + L::one());
+        let five = 1f32 + 1f32 + 1f32 + 1f32 + 1f32;
+        let ten = five * (1f32 + 1f32);
 
         Self {
-            eta: L::one() / ten,
+            eta: 1f32 / ten,
             tau: five,
             mu: ten,
             token: None,
@@ -284,12 +273,12 @@ impl<TID: CanTokenId, L: Float> Default for SampleMirostat2<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: Float> SampleMirostat2<TID, L> {
+impl SampleMirostat2 {
     pub fn new(tau: L, eta: L) -> Self {
         Self {
             tau,
             eta,
-            mu: tau * (L::one() + L::one()),
+            mu: tau * (1f32 + 1f32),
             rd_sampler: SampleRandDistrib::new(),
             token: None,
         }
@@ -300,7 +289,7 @@ impl<TID: CanTokenId, L: Float> SampleMirostat2<TID, L> {
     /// value for mu, be sure to set it after tau.
     pub fn tau(mut self, val: L) -> Self {
         self.tau = val;
-        self.mu = val * (L::one() + L::one());
+        self.mu = val * (1f32 + 1f32);
         self
     }
 
@@ -315,16 +304,12 @@ impl<TID: CanTokenId, L: Float> SampleMirostat2<TID, L> {
     }
 }
 
-impl<TID, L> Sampler<TID, L> for SampleMirostat2<TID, L>
-where
-    TID: CanTokenId,
-    L: CanLogit + Default + SampleUniform + for<'a> std::ops::AddAssign<&'a L>,
-{
+impl Sampler for SampleMirostat2 {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         self.token = None;
         if logits.is_empty() {
             return Ok(logits);
@@ -341,14 +326,13 @@ where
             .max(1);
         logits.truncate(new_size);
         logits.softmax()?;
-        // self.rd_sampler.sample(res, logits)?;
 
         if let Some(tid) = self.rd_sampler.sample_token(res, logits)? {
             let logit = logits.iter().find(|l| l.token_id == tid).ok_or_else(|| {
                 SamplerError::InternalError(String::from("Impossible: sample token not in logits?"))
             })?;
 
-            self.mu = self.mu - (eta * (-logit.prob.log2() - tau));
+            self.mu -= eta * (-logit.prob.log2() - tau);
             self.token = Some(tid);
         }
         Ok(logits)
@@ -359,20 +343,16 @@ where
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue + Float> ConfigurableSampler<usize, L>
-    for SampleMirostat2<TID, L>
-{
+impl ConfigurableSampler<usize, L> for SampleMirostat2 {
     fn post_set_option(&mut self, md: &SamplerOptionMetadata) -> Result<()> {
         if md.key == "tau" {
-            self.mu = self.tau * (L::one() + L::one());
+            self.mu = self.tau * (1f32 + 1f32);
         }
         Ok(())
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
-    for SampleMirostat2<TID, L>
-{
+impl HasSamplerMetadata<usize, L> for SampleMirostat2 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "mirostat 2",

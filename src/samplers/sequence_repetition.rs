@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::collections::HashMap;
 
 use crate::{configure::*, types::*};
 
@@ -35,31 +35,29 @@ use crate::{configure::*, types::*};
 ///     Setting it to 2 would allow `1, 6, 6, 3` to match with `1, 2, 3`. (default: `1`)
 
 #[derive(Debug, Clone)]
-pub struct SampleSeqRepetition<TID = u32, L = f32> {
+pub struct SampleSeqRepetition {
     flat_penalty: L,
     stacking_penalty: L,
     tolerance: usize,
     max_merge: usize,
     min_length: usize,
     last_n: usize,
-    marker: PhantomData<TID>,
 }
 
-impl<TID: CanTokenId, L: CanLogit> Default for SampleSeqRepetition<TID, L> {
+impl Default for SampleSeqRepetition {
     fn default() -> Self {
         Self {
-            flat_penalty: L::zero(),
-            stacking_penalty: L::zero(),
+            flat_penalty: 0f32,
+            stacking_penalty: 0f32,
             tolerance: 0,
             max_merge: 1,
             last_n: 64,
             min_length: 4,
-            marker: PhantomData,
         }
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> SampleSeqRepetition<TID, L> {
+impl SampleSeqRepetition {
     pub fn new(
         flat_penalty: L,
         stacking_penalty: L,
@@ -75,7 +73,6 @@ impl<TID: CanTokenId, L: CanLogit> SampleSeqRepetition<TID, L> {
             tolerance,
             max_merge,
             last_n,
-            marker: PhantomData,
         }
     }
 
@@ -198,12 +195,12 @@ fn fuzzy_match<T: PartialEq + std::fmt::Debug>(
     result
 }
 
-impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleSeqRepetition<TID, L> {
+impl Sampler for SampleSeqRepetition {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let Self {
             last_n,
             min_length,
@@ -213,7 +210,7 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleSeqRepetitio
         } = *self;
 
         if logits.is_empty()
-            || (flat_penalty == L::zero() && stacking_penalty == L::zero())
+            || (flat_penalty == 0f32 && stacking_penalty == 0f32)
             || min_length < 2
             || last_n < min_length
         {
@@ -245,40 +242,26 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleSeqRepetitio
         })?;
 
         for (tid, seqlen) in penalize.into_iter() {
-            let tid = tid.to_usize().ok_or_else(|| {
-                SamplerError::InternalError(String::from("TID conversion failed"))
-            })?;
+            let tid = tid as usize;
             if logits.len() <= tid {
                 Err(SamplerError::InternalError(String::from(
                     "TID out of range for logits",
                 )))?
             }
-            let seqlen = L::from_usize(seqlen).ok_or_else(|| {
-                SamplerError::InternalError(String::from("Couldn't convert usize to logit type"))
-            })?;
+            let seqlen = seqlen as L;
             let l = &mut logits[tid].logit;
 
-            *l = *l
-                - (seqlen * stacking_penalty
-                    + if seqlen > L::zero() {
-                        L::one()
-                    } else {
-                        L::zero()
-                    } * flat_penalty);
+            *l -=
+                seqlen * stacking_penalty + if seqlen > 0f32 { 1f32 } else { 0f32 } * flat_penalty;
         }
 
         Ok(logits)
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
-    for SampleSeqRepetition<TID, L>
-{
-}
+impl ConfigurableSampler<usize, L> for SampleSeqRepetition {}
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
-    for SampleSeqRepetition<TID, L>
-{
+impl HasSamplerMetadata<usize, L> for SampleSeqRepetition {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "sequence repetition",

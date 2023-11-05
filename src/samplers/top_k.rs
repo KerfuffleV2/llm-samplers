@@ -38,12 +38,12 @@ impl SampleTopK {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTopK {
+impl Sampler for SampleTopK {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let k = self.k.max(self.min_keep).min(logits.len());
         logits.ensure_sorted()?.truncate(k);
         Ok(logits)

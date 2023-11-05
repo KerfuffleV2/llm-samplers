@@ -1,12 +1,9 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
-use crate::types::{CanTokenId, SamplerError};
+use crate::types::{SamplerError, TID};
 
 /// Trait for providing resources to samplers.
 pub trait HasSamplerResources: Debug {
-    /// The token ID type for the sampler that will use these resources.
-    type TokenId: Send + Sync + Clone;
-
     /// Allows a sampler to mutably access the RNG (if present).
     fn with_rng_mut(
         &mut self,
@@ -16,52 +13,42 @@ pub trait HasSamplerResources: Debug {
     }
 
     /// Allows a sampler to immutably access the last tokens (if present).
-    fn with_last_tokens(&self, _fun: &mut dyn FnMut(&[Self::TokenId])) -> Result<(), SamplerError> {
+    fn with_last_tokens(&self, _fun: &mut dyn FnMut(&[TID])) -> Result<(), SamplerError> {
         Err(SamplerError::MissingResource("last_tokens".to_string()))
     }
 
     /// Allows a sampler to mutably access the last tokens (if present).
     fn with_last_tokens_mut(
         &mut self,
-        _fun: &mut dyn FnMut(&mut Vec<Self::TokenId>),
+        _fun: &mut dyn FnMut(&mut Vec<TID>),
     ) -> Result<(), SamplerError> {
         Err(SamplerError::MissingResource("last_tokens".to_string()))
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Empty resource structure for use with samplers that don't require
 /// any resources.
-pub struct NilSamplerResources<TID = u32>(PhantomData<TID>);
+pub struct NilSamplerResources;
 
-impl<TID> Default for NilSamplerResources<TID> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<TID> NilSamplerResources<TID> {
+impl NilSamplerResources {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 }
 
-impl<TID: Debug + Send + Sync + Clone> HasSamplerResources for NilSamplerResources<TID> {
-    type TokenId = TID;
-}
+impl HasSamplerResources for NilSamplerResources {}
 
-impl HasSamplerResources for () {
-    type TokenId = u32;
-}
+impl HasSamplerResources for () {}
 
 /// Simple resources that can provide an RNG and/or last tokens to samplers.
-pub struct SimpleSamplerResources<TID = u32> {
+pub struct SimpleSamplerResources {
     pub(crate) rng: Option<Box<dyn rand::RngCore + Send + Sync>>,
 
     pub(crate) last_tokens: Option<Vec<TID>>,
 }
 
-impl<TID: Debug> Debug for SimpleSamplerResources<TID> {
+impl Debug for SimpleSamplerResources {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SamplerResources")
             .field("rng", &self.rng.is_some())
@@ -70,7 +57,7 @@ impl<TID: Debug> Debug for SimpleSamplerResources<TID> {
     }
 }
 
-impl<TID: CanTokenId> SimpleSamplerResources<TID> {
+impl SimpleSamplerResources {
     pub fn new(
         rng: Option<Box<dyn rand::RngCore + Send + Sync>>,
         last_tokens: Option<Vec<TID>>,
@@ -79,9 +66,7 @@ impl<TID: CanTokenId> SimpleSamplerResources<TID> {
     }
 }
 
-impl<TID: CanTokenId> HasSamplerResources for SimpleSamplerResources<TID> {
-    type TokenId = TID;
-
+impl HasSamplerResources for SimpleSamplerResources {
     fn with_rng_mut(
         &mut self,
         fun: &mut dyn FnMut(&mut dyn rand::RngCore),
@@ -95,7 +80,7 @@ impl<TID: CanTokenId> HasSamplerResources for SimpleSamplerResources<TID> {
         )
     }
 
-    fn with_last_tokens(&self, fun: &mut dyn FnMut(&[Self::TokenId])) -> Result<(), SamplerError> {
+    fn with_last_tokens(&self, fun: &mut dyn FnMut(&[TID])) -> Result<(), SamplerError> {
         self.last_tokens.as_ref().map_or_else(
             || Err(SamplerError::MissingResource("last_tokens".to_string())),
             |lt| {
@@ -107,7 +92,7 @@ impl<TID: CanTokenId> HasSamplerResources for SimpleSamplerResources<TID> {
 
     fn with_last_tokens_mut(
         &mut self,
-        fun: &mut dyn FnMut(&mut Vec<Self::TokenId>),
+        fun: &mut dyn FnMut(&mut Vec<TID>),
     ) -> Result<(), SamplerError> {
         self.last_tokens.as_mut().map_or_else(
             || Err(SamplerError::MissingResource("last_tokens".to_string())),

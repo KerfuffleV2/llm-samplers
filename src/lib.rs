@@ -64,7 +64,7 @@
 //!     let mut logits2 = logits.clone();
 //!
 //!     // SamplerChain with u32 token id type and f32 logit type.
-//!     let mut sc = SamplerChain::<u32, f32>::new()
+//!     let mut sc = SamplerChain::new()
 //!         // Bias logits (this example sets bias for token id 3 to -inf)
 //!         + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
 //!         // Apply a repetition penalty.

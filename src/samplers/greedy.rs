@@ -9,21 +9,21 @@ use crate::{configure::*, types::*};
 /// **Parameters**:
 /// - (none)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct SampleGreedy<TID = u32> {
+pub struct SampleGreedy {
     token_id: Option<TID>,
 }
 
-impl<TID: Clone> SampleGreedy<TID> {
+impl SampleGreedy {
     pub fn new() -> Self {
         Self { token_id: None }
     }
 
     pub fn get_token_id(&self) -> Option<TID> {
-        self.token_id.clone()
+        self.token_id
     }
 }
 
-impl<TID> std::ops::Deref for SampleGreedy<TID> {
+impl std::ops::Deref for SampleGreedy {
     type Target = Option<TID>;
 
     fn deref(&self) -> &Self::Target {
@@ -31,12 +31,12 @@ impl<TID> std::ops::Deref for SampleGreedy<TID> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
+impl Sampler for SampleGreedy {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         self.token_id = None;
         if logits.is_empty() {
             return Ok(logits);
@@ -56,17 +56,15 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleGreedy<TID> {
     }
 }
 
-impl<TID, UI, F> ConfigurableSampler<UI, F> for SampleGreedy<TID>
+impl<UI, F> ConfigurableSampler<UI, F> for SampleGreedy
 where
-    TID: ConfigurableNumValue,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
 }
 
-impl<TID, UI, F> HasSamplerMetadata<UI, F> for SampleGreedy<TID>
+impl<UI, F> HasSamplerMetadata<UI, F> for SampleGreedy
 where
-    TID: ConfigurableNumValue,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {

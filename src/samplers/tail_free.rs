@@ -13,22 +13,22 @@ use crate::{configure::*, types::*};
 /// - `min_keep`: Minimum number of entries to keep. Setting this to `0` is not recommended. (default: `1`)
 /// - `z`: The z parameter. It is not entirely clear what a reasonable value here is but 1.0 appears to be
 ///   the same as disabled which is similar to top-p sampling. (default: `1.0`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTailFree<L = f32> {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SampleTailFree {
     pub(crate) z: L,
     pub(crate) min_keep: usize,
 }
 
-impl<L: CanLogit> Default for SampleTailFree<L> {
+impl Default for SampleTailFree {
     fn default() -> Self {
         Self {
-            z: L::one(),
+            z: 1f32,
             min_keep: 1,
         }
     }
 }
 
-impl<L: CanLogit> SampleTailFree<L> {
+impl SampleTailFree {
     pub fn new(z: L, min_keep: usize) -> Self {
         Self { z, min_keep }
     }
@@ -44,17 +44,17 @@ impl<L: CanLogit> SampleTailFree<L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
+impl Sampler for SampleTailFree {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         use std::ops::ControlFlow::*;
 
         let Self { z, min_keep } = *self;
 
-        if z >= L::one() || logits.len() < 2 {
+        if z >= 1f32 || logits.len() < 2 {
             return Ok(logits);
         }
 
@@ -69,7 +69,7 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
 
         let want_sderivs = logits.len() - 2;
         let mut sderivs = Vec::with_capacity(want_sderivs);
-        let mut ssum = L::zero();
+        let mut ssum = 0f32;
 
         while let Some(prob) = fderivs.next() {
             let sprob = (prob
@@ -79,21 +79,21 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
                     ))
                 })?)
             .abs();
-            ssum = ssum + sprob;
+            ssum += sprob;
             sderivs.push(sprob);
             if sderivs.len() == want_sderivs {
                 break;
             }
         }
-        sderivs.iter_mut().for_each(|prob| *prob = *prob / ssum);
+        sderivs.iter_mut().for_each(|prob| *prob /= ssum);
 
-        let mut cum_sum = L::zero();
+        let mut cum_sum = 0f32;
         let last_idx =
             match sderivs
                 .into_iter()
                 .enumerate()
                 .try_fold(logits.len(), |last_idx, (idx, prob)| {
-                    cum_sum = cum_sum + prob;
+                    cum_sum += prob;
                     if cum_sum > z && idx >= min_keep {
                         return Break(idx);
                     }
@@ -107,9 +107,9 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTailFree<L> {
     }
 }
 
-impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleTailFree<L> {}
+impl ConfigurableSampler<usize, L> for SampleTailFree {}
 
-impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleTailFree<L> {
+impl HasSamplerMetadata<usize, L> for SampleTailFree {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "tail free",
