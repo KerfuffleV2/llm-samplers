@@ -40,7 +40,7 @@ impl<TID: CanTokenId + 'static, L: Float + 'static> SampleFlatBias<TID, L> {
     /// [IntoIterator] for the bias item type.
     pub fn new<I: IntoIterator<Item = (TID, L)>>(it: I) -> Self {
         Self {
-            bias: Vec::from_iter(it.into_iter()),
+            bias: Vec::from_iter(it),
         }
     }
 }

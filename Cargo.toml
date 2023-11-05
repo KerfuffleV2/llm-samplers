@@ -1,6 +1,6 @@
 [package]
 name = "llm-samplers"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 description = "Token samplers for large language models"
 repository = "https://github.com/KerfuffleV2/llm-samplers"

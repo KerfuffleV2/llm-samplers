@@ -12,7 +12,7 @@
 //! converted from string to [u64] or [f64] before being
 //! converted to the actual option type.
 
-mod build;
+mod building;
 mod configurable;
 mod metadata;
 mod value;
@@ -20,7 +20,7 @@ mod value;
 use thiserror::Error;
 
 #[doc(inline)]
-pub use self::{build::*, configurable::*, metadata::*, value::*};
+pub use self::{building::*, configurable::*, metadata::*, value::*};
 
 /// Sampler option handling errors.
 #[derive(Debug, Error, Clone, PartialEq)]
