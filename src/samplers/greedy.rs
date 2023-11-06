@@ -37,17 +37,21 @@ impl Sampler for SampleGreedy {
         _res: &mut dyn HasSamplerResources,
         logits: &'a mut Logits,
     ) -> anyhow::Result<&'a mut Logits> {
-        self.token_id = None;
         if logits.is_empty() {
+            self.token_id = None;
             return Ok(logits);
         }
-        let mut result = logits[0].clone();
-        logits.iter().skip(1).for_each(|l| {
-            if l.logit > result.logit {
-                result = l.clone()
-            }
-        });
-        self.token_id = Some(result.token_id);
+
+        self.token_id = if logits.get_sorted() {
+            logits.first()
+        } else {
+            logits
+                .iter()
+                .filter(|l| !l.logit.is_nan())
+                .max_by(|x, y| x.logit.total_cmp(&y.logit))
+        }
+        .map(|l| l.token_id);
+
         Ok(logits)
     }
 

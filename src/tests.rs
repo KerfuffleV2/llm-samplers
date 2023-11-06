@@ -687,7 +687,7 @@ mod build {
         let mut sc = ss.into_chain();
 
         let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
-        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.2, 0.2].into_iter())?;
+        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.19, 0.2].into_iter())?;
         let tok = sc.sample_token(&mut res, &mut logits)?;
         assert_eq!(tok, Some(1));
 
