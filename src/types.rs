@@ -143,10 +143,11 @@ impl Logits {
                 .filter(|(_tid, logit)| logit.is_finite())
                 .fold(Vec::with_capacity(k), |mut logits, (tid, logit)| {
                     if logits.len() == k {
-                        if logit < unsafe { logits.last().unwrap_unchecked().logit } {
-                            return logits;
-                        } else {
+                        // The Vec is guaranteed not to be empty at this point.
+                        if logit > unsafe { logits.last().unwrap_unchecked().logit } {
                             logits.truncate(k - 1);
+                        } else {
+                            return logits;
                         }
                     }
                     logits.insert(
