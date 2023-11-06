@@ -68,7 +68,7 @@ pub struct Logit {
     pub prob: L,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// A collection of [Logit]s. You normally will need to build this from the result of
 /// evaluating the LLM.
 ///
@@ -117,6 +117,48 @@ impl Logits {
                     Ok(result)
                 })
                 .collect::<Result<Vec<_>, LogitsError>>()?,
+        })
+    }
+
+    /// Make a new [Logits] from an iterator of `L` while only keeping the top `k`
+    /// values and maintaining sorted order. This may be faster than building the
+    /// full logits and then later sorting/pruning them. Set `k` high enough that
+    /// the logits it prunes aren't ones that would be considered with normal
+    /// sampling. Something like 500 to 2,000 is probably reasonable.
+    ///
+    /// Note: Infinite and NaN values will also be filtered.
+    pub fn try_from_iter_top_k<I: IntoIterator<Item = L>>(
+        it: I,
+        k: usize,
+    ) -> Result<Self, LogitsError> {
+        if k == 0 {
+            return Ok(Self::default());
+        }
+
+        Ok(Logits {
+            sorted: true,
+            has_softmax: false,
+            logits: (0u32..)
+                .zip(it)
+                .filter(|(_tid, logit)| logit.is_finite())
+                .fold(Vec::with_capacity(k), |mut logits, (tid, logit)| {
+                    if logits.len() == k {
+                        if logit < unsafe { logits.last().unwrap_unchecked().logit } {
+                            return logits;
+                        } else {
+                            logits.truncate(k - 1);
+                        }
+                    }
+                    logits.insert(
+                        logits.partition_point(|l| logit < l.logit),
+                        Logit {
+                            token_id: tid,
+                            logit,
+                            prob: 0f32,
+                        },
+                    );
+                    logits
+                }),
         })
     }
 }
@@ -182,9 +224,8 @@ impl Logits {
         self.ensure_sorted()?;
         let max_l = self[0].logit;
         let cum_sum = self.iter_mut().fold(0f32, |cs, l| {
-            let p = (l.logit - max_l).exp();
-            l.prob = p;
-            cs + p
+            l.prob = (l.logit - max_l).exp();
+            cs + l.prob
         });
         self.iter_mut().for_each(|l| l.prob /= cum_sum);
         self.has_softmax = true;

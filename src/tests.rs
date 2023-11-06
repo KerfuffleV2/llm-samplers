@@ -104,6 +104,19 @@ fn do_test_greedy(it: impl Iterator<Item = f32>, expected: Option<u32>) -> Resul
 }
 
 #[test]
+fn test_logits_with_top_k() -> anyhow::Result<()> {
+    use rand::{seq::SliceRandom, SeedableRng};
+
+    let mut v = Vec::from_iter(std::iter::successors(Some(5f32), |n| Some(n - 0.5)).take(200));
+    v.shuffle(&mut rand::rngs::StdRng::seed_from_u64(123));
+    let logits = Logits::try_from_iter_top_k(v, 20)?;
+    assert_eq!(logits.len(), 20);
+    assert_eq!(logits.first().map(|l| l.logit), Some(5f32));
+    assert_eq!(logits.last().map(|l| l.logit), Some(-4.5f32));
+    Ok(())
+}
+
+#[test]
 fn test_chain1() -> anyhow::Result<()> {
     let mut res = NilSamplerResources;
     let mut logits = Logits::try_from_iter(T1.iter().copied())?;

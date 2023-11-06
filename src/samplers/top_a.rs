@@ -1,6 +1,6 @@
 use crate::{configure::*, types::*};
 
-/// # Min-P sampling
+/// # Top-A sampling
 /// This sampler prunes tokens that don't meet a threshold based
 /// on the most probable token. The formula is `a1 * pow(max_prob, a2)`.
 ///
