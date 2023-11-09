@@ -19,22 +19,22 @@ use crate::{configure::*, types::*};
 /// - `p`: Referred to as τ in the paper. It suggests using 0.2
 ///   as a value for story generation and `0.95` for "abstractive summarization"
 ///   (presumably this means more factual output). (default: `1.0`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleLocallyTypical<L = f32> {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SampleLocallyTypical {
     pub(crate) p: L,
     pub(crate) min_keep: usize,
 }
 
-impl<L: CanLogit> Default for SampleLocallyTypical<L> {
+impl Default for SampleLocallyTypical {
     fn default() -> Self {
         Self {
-            p: L::one(),
+            p: 1f32,
             min_keep: 1,
         }
     }
 }
 
-impl<L: CanLogit> SampleLocallyTypical<L> {
+impl SampleLocallyTypical {
     pub fn new(p: L, min_keep: usize) -> Self {
         Self { p, min_keep }
     }
@@ -50,21 +50,21 @@ impl<L: CanLogit> SampleLocallyTypical<L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
+impl Sampler for SampleLocallyTypical {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         use std::ops::ControlFlow::*;
 
         let Self { p, min_keep } = *self;
         let min_keep = if min_keep == 0 { 0 } else { min_keep - 1 };
-        logits.softmax()?;
+        logits.ensure_softmax()?;
 
         let ent = logits
             .iter()
-            .fold(L::zero(), |ent, l| ent + -l.prob * l.prob.ln());
+            .fold(0f32, |ent, l| ent + -l.prob * l.prob.ln());
 
         let mut shifted = logits
             .iter()
@@ -83,11 +83,11 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
             sort_err?;
         }
 
-        let mut cum_sum = L::zero();
+        let mut cum_sum = 0f32;
         let last_idx = match shifted.iter().enumerate().try_fold(
             shifted.len(),
             |last_idx, (idx, (logit, _score))| {
-                cum_sum = cum_sum + logit.prob;
+                cum_sum += logit.prob;
                 if cum_sum > p && idx >= min_keep {
                     return Break(idx + 1);
                 }
@@ -98,6 +98,8 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
             Break(i) => i,
         };
         logits.clear();
+        logits.set_sorted(false);
+        logits.set_softmax(false);
         shifted
             .into_iter()
             .take(last_idx)
@@ -106,9 +108,9 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleLocallyTypical<L> {
     }
 }
 
-impl<L: ConfigurableNumValue> ConfigurableSampler<usize, L> for SampleLocallyTypical<L> {}
+impl ConfigurableSampler<usize, L> for SampleLocallyTypical {}
 
-impl<L: ConfigurableNumValue> HasSamplerMetadata<usize, L> for SampleLocallyTypical<L> {
+impl HasSamplerMetadata<usize, L> for SampleLocallyTypical {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "locally typical",

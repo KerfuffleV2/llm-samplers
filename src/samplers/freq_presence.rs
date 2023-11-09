@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::collections::HashMap;
 
 use crate::{configure::*, types::*};
 
@@ -19,31 +19,28 @@ use crate::{configure::*, types::*};
 /// - `frequency_penalty`: Penalty to apply to tokens based on frequency. (default: `0.0`)
 
 #[derive(Debug, Clone)]
-pub struct SampleFreqPresence<TID = u32, L = f32> {
+pub struct SampleFreqPresence {
     pub(crate) frequency_penalty: L,
     pub(crate) presence_penalty: L,
     pub(crate) last_n: usize,
-    marker: PhantomData<TID>,
 }
 
-impl<TID: CanTokenId, L: CanLogit> Default for SampleFreqPresence<TID, L> {
+impl Default for SampleFreqPresence {
     fn default() -> Self {
         Self {
-            frequency_penalty: L::zero(),
-            presence_penalty: L::zero(),
+            frequency_penalty: 0f32,
+            presence_penalty: 0f32,
             last_n: 64,
-            marker: PhantomData,
         }
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> SampleFreqPresence<TID, L> {
+impl SampleFreqPresence {
     pub fn new(frequency_penalty: L, presence_penalty: L, last_n: usize) -> Self {
         Self {
             frequency_penalty,
             presence_penalty,
             last_n,
-            marker: PhantomData,
         }
     }
 
@@ -63,12 +60,12 @@ impl<TID: CanTokenId, L: CanLogit> SampleFreqPresence<TID, L> {
     }
 }
 
-impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence<TID, L> {
+impl Sampler for SampleFreqPresence {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let Self {
             frequency_penalty,
             presence_penalty,
@@ -78,12 +75,13 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
 
         if logits.is_empty()
             || last_n == 0
-            || (frequency_penalty == L::zero() && presence_penalty == L::zero())
+            || (frequency_penalty == 0f32 && presence_penalty == 0f32)
         {
             return Ok(logits);
         }
 
         let mut counts = HashMap::<TID, L>::default();
+        let mut changed = 0;
 
         res.with_last_tokens(&mut |orig_tokens| {
             let tokens = if last_n > orig_tokens.len() {
@@ -93,34 +91,32 @@ impl<TID: CanTokenId + Hash, L: CanLogit> Sampler<TID, L> for SampleFreqPresence
             };
             counts.reserve(tokens.len());
             tokens.iter().copied().for_each(|tid| {
-                let cnt = counts.entry(tid).or_insert(L::zero());
-                *cnt = *cnt + L::one()
+                let cnt = counts.entry(tid).or_insert(0f32);
+                *cnt += 1f32
             });
         })?;
 
         logits.iter_mut().for_each(|l| {
-            if let Some(cnt) = counts.get(&l.token_id) {
-                l.logit = l.logit
-                    - (*cnt * frequency_penalty
-                        + if cnt > &L::zero() {
-                            L::one()
-                        } else {
-                            L::zero()
-                        } * presence_penalty);
+            let Some(cnt) = counts.get(&l.token_id) else {
+                return;
+            };
+            if cnt > &0.0 {
+                l.logit -= *cnt * frequency_penalty
+                    + if cnt > &0f32 { 1f32 } else { 0f32 } * presence_penalty;
+                changed += 1;
             }
         });
-        Ok(logits.set_sorted(false))
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
+        Ok(logits)
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
-    for SampleFreqPresence<TID, L>
-{
-}
+impl ConfigurableSampler<usize, L> for SampleFreqPresence {}
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
-    for SampleFreqPresence<TID, L>
-{
+impl HasSamplerMetadata<usize, L> for SampleFreqPresence {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "frequency/presence",

@@ -10,20 +10,18 @@ use crate::{configure::*, types::*};
 ///
 /// **Parameters**:
 /// - `temperature`: Temperature value. (default: `0.8`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SampleTemperature<L = f32> {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SampleTemperature {
     pub(crate) temperature: L,
 }
 
-impl<L: CanLogit> Default for SampleTemperature<L> {
+impl Default for SampleTemperature {
     fn default() -> Self {
-        Self {
-            temperature: L::one(),
-        }
+        Self { temperature: 1f32 }
     }
 }
 
-impl<L: CanLogit> SampleTemperature<L> {
+impl SampleTemperature {
     pub fn new(temperature: L) -> Self {
         Self { temperature }
     }
@@ -34,28 +32,24 @@ impl<L: CanLogit> SampleTemperature<L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleTemperature<L> {
+impl Sampler for SampleTemperature {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let temp = self.temperature;
-        if temp != L::zero() {
-            logits.iter_mut().for_each(|l| l.logit = l.logit / temp);
+        if temp != 0f32 {
+            logits.iter_mut().for_each(|l| l.logit /= temp);
+            logits.set_softmax(false);
         }
         Ok(logits)
     }
 }
 
-impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> ConfigurableSampler<UI, L>
-    for SampleTemperature<L>
-{
-}
+impl<UI: ConfigurableNumValue> ConfigurableSampler<UI, L> for SampleTemperature {}
 
-impl<L: ConfigurableNumValue, UI: ConfigurableNumValue> HasSamplerMetadata<UI, L>
-    for SampleTemperature<L>
-{
+impl<UI: ConfigurableNumValue> HasSamplerMetadata<UI, L> for SampleTemperature {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "temperature",

@@ -20,17 +20,17 @@ pub struct SampleRepetition<TID = u32, L = f32> {
     marker: PhantomData<TID>,
 }
 
-impl<TID: CanTokenId, L: CanLogit> Default for SampleRepetition<TID, L> {
+impl Default for SampleRepetition {
     fn default() -> Self {
         Self {
-            repetition_penalty: L::from(1.1f32).expect("Impossible: Couldn't convert f32 to Float"),
+            repetition_penalty: 1.1f32,
             last_n: 64,
             marker: PhantomData,
         }
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> SampleRepetition<TID, L> {
+impl SampleRepetition {
     pub fn new(repetition_penalty: L, last_n: usize) -> Self {
         Self {
             repetition_penalty,
@@ -50,52 +50,54 @@ impl<TID: CanTokenId, L: CanLogit> SampleRepetition<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleRepetition<TID, L> {
+impl Sampler for SampleRepetition {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         let Self {
             repetition_penalty,
             last_n,
             ..
         } = *self;
 
-        if logits.is_empty() || last_n == 0 || repetition_penalty <= L::one() {
+        if logits.is_empty() || last_n == 0 || repetition_penalty <= 1f32 {
             return Ok(logits);
         }
 
+        let mut changed = 0;
         res.with_last_tokens(&mut |tokens| {
             let tokens = if last_n > tokens.len() {
                 tokens
             } else {
                 &tokens[tokens.len() - last_n..]
             };
+
             logits
                 .iter_mut()
                 .filter(|l| tokens.contains(&l.token_id))
                 .for_each(|l| {
-                    l.logit = if l.logit <= L::zero() {
+                    l.logit = if l.logit <= 0f32 {
                         l.logit * repetition_penalty
                     } else {
                         l.logit / repetition_penalty
                     };
+                    changed += 1;
                 });
         })?;
 
-        Ok(logits.set_sorted(false))
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
+        Ok(logits)
     }
 }
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> ConfigurableSampler<usize, L>
-    for SampleRepetition<TID, L>
-{
-}
+impl ConfigurableSampler<usize, L> for SampleRepetition {}
 
-impl<TID: ConfigurableNumValue, L: ConfigurableNumValue> HasSamplerMetadata<usize, L>
-    for SampleRepetition<TID, L>
-{
+impl HasSamplerMetadata<usize, L> for SampleRepetition {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
             name: "repetition",

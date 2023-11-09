@@ -64,7 +64,7 @@
 //!     let mut logits2 = logits.clone();
 //!
 //!     // SamplerChain with u32 token id type and f32 logit type.
-//!     let mut sc = SamplerChain::<u32, f32>::new()
+//!     let mut sc = SamplerChain::new()
 //!         // Bias logits (this example sets bias for token id 3 to -inf)
 //!         + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
 //!         // Apply a repetition penalty.
@@ -110,8 +110,9 @@
 //! 5. [SampleTailFree](crate::samplers::SampleTailFree) (optional)
 //! 6. [SampleLocallyTypical](crate::samplers::SampleLocallyTypical) (optional)
 //! 7. [SampleTopP](crate::samplers::SampleTopP) (optional)
-//! 8. [SampleTemperature](crate::samplers::SampleTemperature) (optional)
-//! 9. [SampleRandDistrib](crate::samplers::SampleRandDistrib)
+//! 8. [SampleMinP](crate::samplers::SampleMinP) (optional)
+//! 9. [SampleTemperature](crate::samplers::SampleTemperature) (optional)
+//! 10. [SampleRandDistrib](crate::samplers::SampleRandDistrib)
 //!
 //! ### Mirostat V1/V2
 //! 1. [SampleFlatBias](crate::samplers::SampleFlatBias) (optional)

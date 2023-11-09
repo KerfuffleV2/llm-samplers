@@ -1,5 +1,3 @@
-use num_traits::Float;
-
 use crate::{configure::*, types::*};
 
 /// # Flat bias sampling
@@ -17,11 +15,11 @@ use crate::{configure::*, types::*};
 /// **Parameters**:
 /// - `bias`: A [Vec] of token id and bias value tuples. (default: empty)
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct SampleFlatBias<TID = u32, L = f32> {
+pub struct SampleFlatBias {
     pub(crate) bias: Vec<(TID, L)>,
 }
 
-impl<TID, L> std::ops::Deref for SampleFlatBias<TID, L> {
+impl std::ops::Deref for SampleFlatBias {
     type Target = Vec<(TID, L)>;
 
     fn deref(&self) -> &Self::Target {
@@ -29,61 +27,57 @@ impl<TID, L> std::ops::Deref for SampleFlatBias<TID, L> {
     }
 }
 
-impl<TID, L> std::ops::DerefMut for SampleFlatBias<TID, L> {
+impl std::ops::DerefMut for SampleFlatBias {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.bias
     }
 }
 
-impl<TID: CanTokenId + 'static, L: Float + 'static> SampleFlatBias<TID, L> {
+impl SampleFlatBias {
     /// Construct the sampler from from anything that implements
     /// [IntoIterator] for the bias item type.
     pub fn new<I: IntoIterator<Item = (TID, L)>>(it: I) -> Self {
         Self {
-            bias: Vec::from_iter(it.into_iter()),
+            bias: Vec::from_iter(it),
         }
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SampleFlatBias<TID, L> {
+impl Sampler for SampleFlatBias {
     fn sample<'a>(
         &mut self,
-        _res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
-        let valid_tid = 0..logits.len();
-        self.bias.iter().for_each(|(tid, bv)| {
-            if let Some(tid) = tid.to_usize() {
-                if valid_tid.contains(&tid) {
-                    let l = &mut logits[tid].logit;
-                    *l = *l + *bv;
-                }
+        _res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
+        let bi = self.bias.iter();
+        let mut changed = 0;
+
+        logits.iter_mut().for_each(|l| {
+            if let Some((_tid, bv)) = bi.clone().find(|(tid, _bv)| tid == &l.token_id) {
+                l.logit += bv;
+                changed += 1;
             }
         });
+        if changed > 0 {
+            logits.set_sorted(false);
+            logits.set_softmax(false);
+        }
         Ok(logits)
     }
 }
 
 // FIXME: Find a sane way to implement this for the list of bias items.
-impl<
-        TID: ConfigurableNumValue,
-        L: ConfigurableNumValue,
-        UI: ConfigurableNumValue,
-        F: ConfigurableNumValue,
-    > ConfigurableSampler<UI, F> for SampleFlatBias<TID, L>
+impl<UI: ConfigurableNumValue, F: ConfigurableNumValue> ConfigurableSampler<UI, F>
+    for SampleFlatBias
 {
 }
 
-impl<
-        TID: ConfigurableNumValue,
-        L: ConfigurableNumValue,
-        UI: ConfigurableNumValue,
-        F: ConfigurableNumValue,
-    > HasSamplerMetadata<UI, F> for SampleFlatBias<TID, L>
+impl<UI: ConfigurableNumValue, F: ConfigurableNumValue> HasSamplerMetadata<UI, F>
+    for SampleFlatBias
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
-            name: "sequence repetition",
+            name: "flat bias",
             description: Some(concat!(
                 "Used to bias specific tokens by either increasing or ",
                 "decreasing their probability. ",

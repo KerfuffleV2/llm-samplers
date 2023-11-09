@@ -23,71 +23,64 @@ pub enum BuildSamplersError {
     ConfigureFailed { name: String, err: anyhow::Error },
 }
 
-pub trait BuildableSampler<TID = u32, L = f32, UI = usize, F = f32>:
-    Sampler<TID, L> + ConfigurableSampler<UI, F> + Send + Sync + std::fmt::Debug + 'static
+pub trait BuildableSampler<UI, F>:
+    Sampler + ConfigurableSampler<UI, F> + Send + Sync + std::fmt::Debug + 'static
 where
-    TID: CanTokenId,
-    L: CanLogit,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
 }
 
-impl<T, TID, L, UI, F> BuildableSampler<TID, L, UI, F> for T
+impl<T, UI, F> BuildableSampler<UI, F> for T
 where
-    Self: Sampler<TID, L> + ConfigurableSampler<UI, F> + Send + Sync + std::fmt::Debug + 'static,
-    TID: CanTokenId,
-    L: CanLogit,
+    Self: Sampler + ConfigurableSampler<UI, F> + Send + Sync + std::fmt::Debug + 'static,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
 }
 
-impl<TID, L, UI, F> Sampler<TID, L> for Box<dyn BuildableSampler<TID, L, UI, F>> {
+impl<UI, F> Sampler for Box<dyn BuildableSampler<UI, F>> {
     fn sampled_token_id(&self) -> Option<TID> {
         (**self).sampled_token_id()
     }
 
     fn sample_token(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &mut Logits<TID, L>,
+        res: &mut dyn HasSamplerResources,
+        logits: &mut Logits,
     ) -> Result<Option<TID>> {
         (**self).sample_token(res, logits)
     }
 
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> Result<&'a mut Logits> {
         (**self).sample(res, logits)
     }
 }
 
-pub type SamplerFactory<TID = u32, L = f32, UI = usize, F = f32> =
-    dyn FnMut() -> Box<dyn BuildableSampler<TID, L, UI, F>>;
+pub type SamplerFactory<UI = usize, F = f32> = dyn FnMut() -> Box<dyn BuildableSampler<UI, F>>;
 
-pub enum SamplerSlot<TID = u32, L = f32, UI = usize, F = f32> {
+pub enum SamplerSlot<UI, F> {
     /// Static slot holding a sampler that stays constant.
-    Static {
-        factory: Box<SamplerFactory<TID, L, UI, F>>,
-    },
+    Static { factory: Box<SamplerFactory<UI, F>> },
 
     /// A single optional sampler.
     Single {
-        factory: Box<SamplerFactory<TID, L, UI, F>>,
-        sampler: Option<Box<dyn BuildableSampler<TID, L, UI, F>>>,
+        factory: Box<SamplerFactory<UI, F>>,
+        sampler: Option<Box<dyn BuildableSampler<UI, F>>>,
     },
 
     /// A chain of samplers.
     Chain {
-        factory: Box<SamplerFactory<TID, L, UI, F>>,
-        samplers: Vec<Box<dyn BuildableSampler<TID, L, UI, F>>>,
+        factory: Box<SamplerFactory<UI, F>>,
+        samplers: Vec<Box<dyn BuildableSampler<UI, F>>>,
     },
 }
 
-impl<TID: Debug, L: Debug, UI: Debug, F: Debug> Debug for SamplerSlot<TID, L, UI, F> {
+impl<UI: Debug, F: Debug> Debug for SamplerSlot<UI, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Static { .. } => f.debug_struct("Static").finish(),
@@ -101,34 +94,30 @@ impl<TID: Debug, L: Debug, UI: Debug, F: Debug> Debug for SamplerSlot<TID, L, UI
     }
 }
 
-impl<TID, L, UI, F> SamplerSlot<TID, L, UI, F>
+impl<UI, F> SamplerSlot<UI, F>
 where
-    TID: CanTokenId,
-    L: CanLogit,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    pub fn new_static(
-        factory: impl FnMut() -> Box<dyn BuildableSampler<TID, L, UI, F>> + 'static,
-    ) -> Self {
+    pub fn new_static(factory: impl FnMut() -> Box<dyn BuildableSampler<UI, F>> + 'static) -> Self {
         Self::Static {
             factory: Box::new(factory),
         }
     }
 
     pub fn new_single(
-        factory: impl FnMut() -> Box<dyn BuildableSampler<TID, L, UI, F>> + 'static,
-        sampler: Option<impl BuildableSampler<TID, L, UI, F>>,
+        factory: impl FnMut() -> Box<dyn BuildableSampler<UI, F>> + 'static,
+        sampler: Option<impl BuildableSampler<UI, F>>,
     ) -> Self {
         Self::Single {
             factory: Box::new(factory),
-            sampler: sampler.map(|i| Box::new(i) as Box<dyn BuildableSampler<TID, L, UI, F>>),
+            sampler: sampler.map(|i| Box::new(i) as Box<dyn BuildableSampler<UI, F>>),
         }
     }
 
     pub fn new_chain(
-        factory: impl FnMut() -> Box<dyn BuildableSampler<TID, L, UI, F>> + 'static,
-        samplers: impl IntoIterator<Item = Box<dyn BuildableSampler<TID, L, UI, F>>>,
+        factory: impl FnMut() -> Box<dyn BuildableSampler<UI, F>> + 'static,
+        samplers: impl IntoIterator<Item = Box<dyn BuildableSampler<UI, F>>>,
     ) -> Self {
         Self::Chain {
             factory: Box::new(factory),
@@ -154,11 +143,11 @@ where
 }
 
 #[derive(Debug)]
-pub struct SamplerChainBuilder<TID = u32, L = f32, UI = usize, F = f32> {
-    slots: Vec<(String, SamplerSlot<TID, L, UI, F>)>,
+pub struct SamplerChainBuilder<UI, F> {
+    slots: Vec<(String, SamplerSlot<UI, F>)>,
 }
 
-impl<TID, L, UI, F> Default for SamplerChainBuilder<TID, L, UI, F> {
+impl<UI, F> Default for SamplerChainBuilder<UI, F> {
     fn default() -> Self {
         Self {
             slots: Default::default(),
@@ -166,8 +155,8 @@ impl<TID, L, UI, F> Default for SamplerChainBuilder<TID, L, UI, F> {
     }
 }
 
-impl<S: AsRef<str>, TID, L, UI, F, I: IntoIterator<Item = (S, SamplerSlot<TID, L, UI, F>)>> From<I>
-    for SamplerChainBuilder<TID, L, UI, F>
+impl<S: AsRef<str>, UI, F, I: IntoIterator<Item = (S, SamplerSlot<UI, F>)>> From<I>
+    for SamplerChainBuilder<UI, F>
 {
     fn from(value: I) -> Self {
         Self {
@@ -179,56 +168,49 @@ impl<S: AsRef<str>, TID, L, UI, F, I: IntoIterator<Item = (S, SamplerSlot<TID, L
     }
 }
 
-impl<TID, L, UI, F> std::ops::Deref for SamplerChainBuilder<TID, L, UI, F> {
-    type Target = Vec<(String, SamplerSlot<TID, L, UI, F>)>;
+impl<UI, F> std::ops::Deref for SamplerChainBuilder<UI, F> {
+    type Target = Vec<(String, SamplerSlot<UI, F>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.slots
     }
 }
 
-impl<TID, L, UI, F> std::ops::DerefMut for SamplerChainBuilder<TID, L, UI, F> {
+impl<UI, F> std::ops::DerefMut for SamplerChainBuilder<UI, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.slots
     }
 }
 
-impl<TID, L, UI, F> AddAssign<(String, SamplerSlot<TID, L, UI, F>)>
-    for SamplerChainBuilder<TID, L, UI, F>
+impl<UI, F> AddAssign<(String, SamplerSlot<UI, F>)> for SamplerChainBuilder<UI, F>
 where
-    TID: ConfigurableNumValue + CanTokenId,
-    L: ConfigurableNumValue + CanLogit,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    fn add_assign(&mut self, (name, slot): (String, SamplerSlot<TID, L, UI, F>)) {
+    fn add_assign(&mut self, (name, slot): (String, SamplerSlot<UI, F>)) {
         self.push_slot(name, slot)
     }
 }
 
-impl<TID, L, UI, F> Add<(String, SamplerSlot<TID, L, UI, F>)> for SamplerChainBuilder<TID, L, UI, F>
+impl<UI, F> Add<(String, SamplerSlot<UI, F>)> for SamplerChainBuilder<UI, F>
 where
-    TID: ConfigurableNumValue + CanTokenId,
-    L: ConfigurableNumValue + CanLogit,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
     type Output = Self;
 
-    fn add(mut self, (name, slot): (String, SamplerSlot<TID, L, UI, F>)) -> Self {
+    fn add(mut self, (name, slot): (String, SamplerSlot<UI, F>)) -> Self {
         self.push_slot(name, slot);
         self
     }
 }
 
-impl<TID, L, UI, F> SamplerChainBuilder<TID, L, UI, F>
+impl<UI, F> SamplerChainBuilder<UI, F>
 where
-    TID: ConfigurableNumValue + CanTokenId,
-    L: ConfigurableNumValue + CanLogit,
     UI: ConfigurableNumValue,
     F: ConfigurableNumValue,
 {
-    pub fn push_slot(&mut self, name: String, slot: SamplerSlot<TID, L, UI, F>) {
+    pub fn push_slot(&mut self, name: String, slot: SamplerSlot<UI, F>) {
         self.slots.push((name, slot))
     }
 
@@ -267,8 +249,8 @@ where
         Ok(())
     }
 
-    pub fn into_chain(self) -> SamplerChain<TID, L> {
-        let mut chain = SamplerChain::<TID, L>::new();
+    pub fn into_chain(self) -> SamplerChain {
+        let mut chain = SamplerChain::new();
 
         self.slots.into_iter().for_each(|(_name, slot)| match slot {
             SamplerSlot::Static { mut factory } => chain += factory(),

@@ -3,19 +3,19 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use crate::types::{CanLogit, CanTokenId, HasSamplerResources, Logits, Sampler};
+use crate::types::{HasSamplerResources, Logits, Sampler, TID};
 
 #[derive(Default, Debug)]
 /// A list of [Sampler]s that can be run in sequence. It implements `Sampler`
 /// so you can build samplers as modular components. A typical use case would
 /// be to have several filtering samplers and then a token-picking sampler as the last
 /// item to enable calling [Sampler::sample_token] on the chain.
-pub struct SamplerChain<TID = u32, L = f32> {
-    samplers: Vec<Box<dyn Sampler<TID, L>>>,
+pub struct SamplerChain {
+    samplers: Vec<Box<dyn Sampler>>,
     token: Option<TID>,
 }
 
-impl<TID: CanTokenId, L: CanLogit> SamplerChain<TID, L> {
+impl SamplerChain {
     pub fn new() -> Self {
         Self {
             samplers: vec![],
@@ -23,22 +23,19 @@ impl<TID: CanTokenId, L: CanLogit> SamplerChain<TID, L> {
         }
     }
 
-    pub fn push_sampler(
-        &mut self,
-        sampler: impl Sampler<TID, L> + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn push_sampler(&mut self, sampler: impl Sampler + Send + Sync + 'static) -> &mut Self {
         self.token = None;
         self.samplers.push(Box::new(sampler));
         self
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SamplerChain<TID, L> {
+impl Sampler for SamplerChain {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         self.token = None;
         self.samplers
             .iter_mut()
@@ -54,18 +51,18 @@ impl<TID: CanTokenId, L: CanLogit> Sampler<TID, L> for SamplerChain<TID, L> {
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit, Rhs> AddAssign<Rhs> for SamplerChain<TID, L>
+impl<Rhs> AddAssign<Rhs> for SamplerChain
 where
-    Rhs: Sampler<TID, L> + Send + Sync + 'static,
+    Rhs: Sampler + Send + Sync + 'static,
 {
     fn add_assign(&mut self, rhs: Rhs) {
         let _ = self.push_sampler(rhs);
     }
 }
 
-impl<TID: CanTokenId, L: CanLogit, Rhs> Add<Rhs> for SamplerChain<TID, L>
+impl<Rhs> Add<Rhs> for SamplerChain
 where
-    Rhs: Sampler<TID, L> + Send + Sync + 'static,
+    Rhs: Sampler + Send + Sync + 'static,
 {
     type Output = Self;
 

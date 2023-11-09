@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use rand::distributions::{uniform::SampleUniform, Distribution, WeightedIndex};
+use rand::distributions::{Distribution, WeightedIndex};
 
 use crate::{configure::*, types::*};
 
@@ -18,31 +18,27 @@ use crate::{configure::*, types::*};
 /// **Parameters**:
 /// - (none)
 #[derive(Debug, Default, Clone)]
-pub struct SampleRandDistrib<TID = u32> {
+pub struct SampleRandDistrib {
     token_id: Option<TID>,
 }
 
-impl<TID: CanTokenId> SampleRandDistrib<TID> {
+impl SampleRandDistrib {
     pub fn new() -> Self {
         Self { token_id: None }
     }
 }
 
-impl<TID, L> Sampler<TID, L> for SampleRandDistrib<TID>
-where
-    TID: CanTokenId,
-    L: CanLogit + SampleUniform + Default + for<'a> std::ops::AddAssign<&'a L>,
-{
+impl Sampler for SampleRandDistrib {
     fn sample<'a>(
         &mut self,
-        res: &mut dyn HasSamplerResources<TokenId = TID>,
-        logits: &'a mut Logits<TID, L>,
-    ) -> anyhow::Result<&'a mut Logits<TID, L>> {
+        res: &mut dyn HasSamplerResources,
+        logits: &'a mut Logits,
+    ) -> anyhow::Result<&'a mut Logits> {
         self.token_id = None;
         if logits.is_empty() {
             return Ok(logits);
         }
-        logits.softmax()?;
+        logits.ensure_softmax()?;
         let dist = WeightedIndex::new(logits.iter().map(|l| l.prob))
             .map_err(SamplerError::RandWeightedError)?;
         res.with_rng_mut(&mut |r| {
@@ -56,13 +52,13 @@ where
     }
 }
 
-impl<TID: ConfigurableNumValue, UI: ConfigurableNumValue, F: ConfigurableNumValue>
-    ConfigurableSampler<UI, F> for SampleRandDistrib<TID>
+impl<UI: ConfigurableNumValue, F: ConfigurableNumValue> ConfigurableSampler<UI, F>
+    for SampleRandDistrib
 {
 }
 
-impl<TID: ConfigurableNumValue, UI: ConfigurableNumValue, F: ConfigurableNumValue>
-    HasSamplerMetadata<UI, F> for SampleRandDistrib<TID>
+impl<UI: ConfigurableNumValue, F: ConfigurableNumValue> HasSamplerMetadata<UI, F>
+    for SampleRandDistrib
 {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {

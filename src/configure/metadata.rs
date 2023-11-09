@@ -63,7 +63,7 @@ impl<T> SamplerOptions<T> {
         md: impl IntoIterator<Item = SamplerOptionMetadata>,
         i: impl IntoIterator<Item = Option<T>>,
     ) -> Self {
-        Self(md.into_iter().zip(i.into_iter()).collect())
+        Self(md.into_iter().zip(i).collect())
     }
 
     pub fn find_option_definition(
@@ -71,11 +71,8 @@ impl<T> SamplerOptions<T> {
         key: &str,
     ) -> Result<(SamplerOptionMetadata, Option<usize>)> {
         let key = key.trim();
-        let mut it = self.iter().enumerate().filter_map(|(idx, (omd, acc))| {
-            omd.key
-                .starts_with(key)
-                .then(|| (omd.clone(), acc.is_some().then_some(idx)))
-        });
+        let mut it = self.iter().enumerate().filter(|&(_idx, (omd, _acc))| omd.key
+                .starts_with(key)).map(|(idx, (omd, acc))| (omd.clone(), acc.is_some().then_some(idx)));
         let Some((optdef, optidx)) = it.next() else {
             Err(ConfigureSamplerError::UnknownOrBadType(if key.is_empty() {
                         "<unspecified>".to_string()

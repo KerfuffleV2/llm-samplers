@@ -5,12 +5,12 @@ use crate::prelude::*;
 pub const T1: &[f32] = &[0.1, 0.2, 0.3, 0.4];
 pub const TE1: &[f32] = &[0.4, 0.3, 0.2, 0.1];
 
-pub type TestValidator<S> = fn(&mut S, &mut Logits<u32, f32>, &[f32]);
+pub type TestValidator<S> = fn(&mut S, &mut Logits, &[f32]);
 
-fn test_sampler_ll<S: Sampler<u32, f32>>(
+fn test_sampler_ll<S: Sampler>(
     use_ln: bool,
     use_sm: bool,
-    res: &mut dyn HasSamplerResources<TokenId = u32>,
+    res: &mut dyn HasSamplerResources,
     sampler: &mut S,
     input: &[f32],
     expected: &[f32],
@@ -19,14 +19,14 @@ fn test_sampler_ll<S: Sampler<u32, f32>>(
     let mut logits = Logits::try_from_iter(input.iter().map(|i| if use_ln { i.ln() } else { *i }))
         .expect("Bad logits");
     if use_sm {
-        logits.softmax().expect("Softmax failed");
+        logits.ensure_softmax().expect("Softmax failed");
     }
     let result_logits = sampler.sample(res, &mut logits).expect("Sampler error");
     vf(sampler, result_logits, expected)
 }
 
-fn test_sampler<S: Sampler<u32, f32>>(
-    res: &mut dyn HasSamplerResources<TokenId = u32>,
+fn test_sampler<S: Sampler>(
+    res: &mut dyn HasSamplerResources,
     sampler: &mut S,
     input: &[f32],
     expected: &[f32],
@@ -35,8 +35,8 @@ fn test_sampler<S: Sampler<u32, f32>>(
     test_sampler_ll(true, true, res, sampler, input, expected, vf)
 }
 
-fn test_sampler_no_sm<S: Sampler<u32, f32>>(
-    res: &mut dyn HasSamplerResources<TokenId = u32>,
+fn test_sampler_no_sm<S: Sampler>(
+    res: &mut dyn HasSamplerResources,
     sampler: &mut S,
     input: &[f32],
     expected: &[f32],
@@ -45,8 +45,8 @@ fn test_sampler_no_sm<S: Sampler<u32, f32>>(
     test_sampler_ll(true, false, res, sampler, input, expected, vf)
 }
 
-fn test_sampler_raw<S: Sampler<u32, f32>>(
-    res: &mut dyn HasSamplerResources<TokenId = u32>,
+fn test_sampler_raw<S: Sampler>(
+    res: &mut dyn HasSamplerResources,
     sampler: &mut S,
     input: &[f32],
     expected: &[f32],
@@ -55,58 +55,73 @@ fn test_sampler_raw<S: Sampler<u32, f32>>(
     test_sampler_ll(false, false, res, sampler, input, expected, vf)
 }
 
-fn validate(
-    _sampler: &mut impl Sampler<u32, f32>,
-    logits: &mut Logits<u32, f32>,
-    expected: &[f32],
-) {
+fn validate(_sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
     let result = logits
         .iter()
         .zip(expected.iter())
         .map(|(l, e)| (l.prob - e).abs())
         .collect::<Vec<_>>();
     let lprobs = logits.iter().map(|i| i.prob).collect::<Vec<_>>();
-    // println!("initial:\n{logits:?}\nexpected:\n{expected:?}\ngot:\n{result:?}");
-    assert_eq!(result.len(), expected.len());
+    assert_eq!(
+        result.len(),
+        expected.len(),
+        "result length mismatch: {lprobs:?} vs expected {expected:?}"
+    );
     assert!(
         result.iter().all(|i| *i < 0.00001),
-        "{result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
+        "result {result:?} not within tolerance: {lprobs:?} vs expected {expected:?}"
     )
 }
 
-fn validate_sm(
-    sampler: &mut impl Sampler<u32, f32>,
-    logits: &mut Logits<u32, f32>,
-    expected: &[f32],
-) {
-    validate(sampler, logits.softmax().expect("Softmax failed"), expected);
+fn validate_sm(sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
+    validate(
+        sampler,
+        logits.ensure_softmax().expect("Softmax failed"),
+        expected,
+    );
 }
 
-fn validate_eq(
-    _sampler: &mut impl Sampler<u32, f32>,
-    logits: &mut Logits<u32, f32>,
-    expected: &[f32],
-) {
+#[allow(dead_code)]
+fn validate_sorted(sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
+    validate(
+        sampler,
+        logits.ensure_sorted().expect("Sort failed"),
+        expected,
+    );
+}
+
+fn validate_eq(_sampler: &mut impl Sampler, logits: &mut Logits, expected: &[f32]) {
     assert_eq!(logits.iter().map(|l| l.logit).collect::<Vec<_>>(), expected)
 }
 
 fn do_test_greedy(it: impl Iterator<Item = f32>, expected: Option<u32>) -> Result<()> {
     assert_eq!(
-        Logits::try_from_iter(it)?.sample_token(
-            &mut NilSamplerResources::default(),
-            &mut SampleGreedy::new()
-        )?,
+        Logits::try_from_iter(it)?
+            .sample_token(&mut NilSamplerResources, &mut SampleGreedy::new())?,
         expected
     );
     Ok(())
 }
 
 #[test]
+fn test_logits_with_top_k() -> anyhow::Result<()> {
+    use rand::{seq::SliceRandom, SeedableRng};
+
+    let mut v = Vec::from_iter(std::iter::successors(Some(5f32), |n| Some(n - 0.5)).take(200));
+    v.shuffle(&mut rand::rngs::StdRng::seed_from_u64(123));
+    let logits = Logits::try_from_iter_top_k(v, 20)?;
+    assert_eq!(logits.len(), 20);
+    assert_eq!(logits.first().map(|l| l.logit), Some(5f32));
+    assert_eq!(logits.last().map(|l| l.logit), Some(-4.5f32));
+    Ok(())
+}
+
+#[test]
 fn test_chain1() -> anyhow::Result<()> {
-    let mut res = NilSamplerResources::default();
+    let mut res = NilSamplerResources;
     let mut logits = Logits::try_from_iter(T1.iter().copied())?;
 
-    let mut sc = SamplerChain::<u32, f32>::new()
+    let mut sc = SamplerChain::new()
         + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
         + SampleFlatBias::new([(2, f32::NEG_INFINITY)])
         + SampleGreedy::new();
@@ -125,7 +140,7 @@ fn test_chain2() -> Result<()> {
     let mut logits = Logits::try_from_iter(T1.iter().copied())?;
     let mut logits2 = logits.clone();
 
-    let mut sc = SamplerChain::<u32, f32>::new()
+    let mut sc = SamplerChain::new()
         + SampleFlatBias::new([(3, f32::NEG_INFINITY)])
         + SampleRepetition::new(1.1, 64)
         + SampleFreqPresence::new(0.05, 0.1, 64)
@@ -169,7 +184,7 @@ mod sampler {
 
     #[test]
     fn test_top_k() {
-        let mut res = NilSamplerResources::default();
+        let mut res = NilSamplerResources;
         test_sampler(
             &mut res,
             &mut SampleTopK::new(1, 0),
@@ -188,7 +203,7 @@ mod sampler {
 
     #[test]
     fn test_top_p() {
-        let mut res = NilSamplerResources::default();
+        let mut res = NilSamplerResources;
         test_sampler(
             &mut res,
             &mut SampleTopP::new(0.0, 1),
@@ -204,6 +219,64 @@ mod sampler {
             validate,
         );
         test_sampler(&mut res, &mut SampleTopP::new(1.0, 1), T1, TE1, validate);
+    }
+
+    #[test]
+    fn test_min_p() {
+        const TINP: &[f32] = &[2.0, 1.0, 0.5, 0.25, 0.1];
+        const TEXP: &[f32] = &[0.5194805, 0.25974026, 0.12987013, 0.064935066, 0.025974026];
+
+        let mut res = NilSamplerResources;
+        test_sampler(
+            &mut res,
+            &mut SampleMinP::new(2.0, 1),
+            TINP,
+            &TEXP[0..1],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleMinP::new(0.2, 1),
+            TINP,
+            &TEXP[0..3],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleMinP::new(0.0001, 1),
+            TINP,
+            TEXP,
+            validate,
+        );
+    }
+
+    #[test]
+    fn test_top_a() {
+        const TINP: &[f32] = &[2.0, 1.0, 0.5, 0.25, 0.1];
+        const TEXP: &[f32] = &[0.5194805, 0.25974026, 0.12987013, 0.064935066, 0.025974026];
+
+        let mut res = NilSamplerResources;
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(8.0, 2.0, 1),
+            TINP,
+            &TEXP[0..1],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(0.45, 2.0, 1),
+            TINP,
+            &TEXP[0..3],
+            validate,
+        );
+        test_sampler(
+            &mut res,
+            &mut SampleTopA::new(0.0001, 2.0, 1),
+            TINP,
+            TEXP,
+            validate,
+        );
     }
 
     #[test]
@@ -332,7 +405,7 @@ mod sampler {
 
     #[test]
     fn test_locally_typical() {
-        let mut res = NilSamplerResources::default();
+        let mut res = NilSamplerResources;
         test_sampler_no_sm(
             &mut res,
             &mut SampleLocallyTypical::new(0.5, 1),
@@ -352,7 +425,7 @@ mod sampler {
     #[test]
     fn test_tail_free() {
         const T: &[f32] = &[0.1, 0.15, 0.2, 0.25, 0.3];
-        let mut res = NilSamplerResources::default();
+        let mut res = NilSamplerResources;
 
         test_sampler_no_sm(
             &mut res,
@@ -380,7 +453,7 @@ mod sampler {
     #[test]
     fn test_flat_bias() {
         const T: &[f32] = &[0.1, 0.15, 0.2, 0.25, 0.3];
-        let mut res = NilSamplerResources::default();
+        let mut res = NilSamplerResources;
 
         test_sampler_raw(
             &mut res,
@@ -405,7 +478,7 @@ mod sampler {
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
-        let mut sampler = SampleRandDistrib::<u32>::new();
+        let mut sampler = SampleRandDistrib::new();
         assert_eq!(
             Logits::try_from_iter([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln()))?
                 .sample_token(&mut res, &mut sampler)?,
@@ -426,13 +499,13 @@ mod sampler {
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
-        let mut sampler = SampleMirostat1::<u32, f32>::new(3, 5.0, 0.1);
+        let mut sampler = SampleMirostat1::new(3, 5.0, 0.1);
         assert_eq!(
             Logits::try_from_iter([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln()))?
                 .sample_token(&mut res, &mut sampler)?,
             Some(0)
         );
-        let mut sampler = SampleMirostat1::<u32, f32>::new(3, 5.0, 0.1);
+        let mut sampler = SampleMirostat1::new(3, 5.0, 0.1);
         assert_eq!(
             Logits::try_from_iter([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln()))?
                 .sample_token(&mut res, &mut sampler)?,
@@ -448,13 +521,13 @@ mod sampler {
             Some(Box::new(rand::rngs::StdRng::seed_from_u64(123))),
             None,
         );
-        let mut sampler = SampleMirostat2::<u32, f32>::new(5.0, 0.1);
+        let mut sampler = SampleMirostat2::new(5.0, 0.1);
         assert_eq!(
             Logits::try_from_iter([1.0f32, 0.0, 0.0].into_iter().map(|i| i.ln()))?
                 .sample_token(&mut res, &mut sampler)?,
             Some(0)
         );
-        let mut sampler = SampleMirostat2::<u32, f32>::new(5.0, 0.1);
+        let mut sampler = SampleMirostat2::new(5.0, 0.1);
         assert_eq!(
             Logits::try_from_iter([0.0f32, 0.0, 1.0].into_iter().map(|i| i.ln()))?
                 .sample_token(&mut res, &mut sampler)?,
@@ -512,7 +585,7 @@ mod configure {
 
     #[test]
     fn test_set_get_options() -> Result<()> {
-        let mut samp = SampleTemperature::<f32>::new(5.0);
+        let mut samp = SampleTemperature::new(5.0);
         assert_eq!(
             ConfigurableSampler::<u32, f32>::get_option(&samp, "temperature")?,
             SamplerOptionValue::Float(5.0)
@@ -537,7 +610,7 @@ mod configure {
 
     #[test]
     fn test_config_from_str1() -> Result<()> {
-        let mut samp = SampleTemperature::<f32>::new(5.0);
+        let mut samp = SampleTemperature::new(5.0);
 
         ConfigurableSampler::<u32, f32>::configure(&mut samp, "7.0")?;
         assert_eq!(
@@ -555,7 +628,7 @@ mod configure {
 
     #[test]
     fn test_config_from_str2() -> Result<()> {
-        let mut samp = SampleFreqPresence::<u32, f32>::default();
+        let mut samp = SampleFreqPresence::default();
 
         samp.configure("frequency_penalty=inf : presence_penalty=-inf : last_n =69")?;
         assert_eq!(
@@ -588,7 +661,7 @@ mod build {
 
     #[test]
     fn test_build1() -> Result<()> {
-        let mut ss: SamplerChainBuilder = SamplerChainBuilder::from([
+        let mut ss: SamplerChainBuilder<usize, f32> = SamplerChainBuilder::from([
             (
                 "rep".to_string(),
                 SamplerSlot::new_chain(|| Box::new(SampleRepetition::new(0.0, 0)), []),
@@ -602,7 +675,7 @@ mod build {
             ),
             (
                 "greedy".to_string(),
-                SamplerSlot::new_static(|| Box::new(SampleGreedy::<u32>::new())),
+                SamplerSlot::new_static(|| Box::new(SampleGreedy::new())),
             ),
         ]);
 
@@ -614,7 +687,7 @@ mod build {
         let mut sc = ss.into_chain();
 
         let mut res = SimpleSamplerResources::new(None, Some(vec![0, 1, 2, 3, 3, 0, 0]));
-        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.2, 0.2].into_iter())?;
+        let mut logits = Logits::try_from_iter([0.2, 0.2, 0.19, 0.2].into_iter())?;
         let tok = sc.sample_token(&mut res, &mut logits)?;
         assert_eq!(tok, Some(1));
 

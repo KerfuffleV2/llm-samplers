@@ -1,32 +1,37 @@
 use crate::{configure::*, types::*};
 
-/// # Top-P sampling
-/// This sampler adds up the token probabilities until the value is
-/// greater or equal to `p` and at least `min_keep` tokens have been
-/// encountered. The remaining tokens are eliminated.
+/// # Min-P sampling
+/// This sampler prunes tokens that don't meet a certain percentage
+/// of the most probable token. For example if `p` is `0.05` then
+/// after `min_keep` is satisfied, other tokens must be at least 5%
+/// of the most probable token.
+///
+/// Credit to @kalomaze on GitHub for design. See this link for a more in-depth
+/// explanation: https://github.com/ggerganov/llama.cpp/issues/3483#issuecomment-1783920998
+
 ///
 /// **Properties**:
 /// - Filters logits
 ///
 /// **Parameters**:
 /// - `min_keep`: Minimum number of entries to keep. (default: `1`)
-/// - `p`: Target value. (default: `0.9`)
+/// - `p`: Threshold value. Use `0.0` to disable. (default: `0.9`)
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SampleTopP {
+pub struct SampleMinP {
     pub(crate) p: L,
     pub(crate) min_keep: usize,
 }
 
-impl Default for SampleTopP {
+impl Default for SampleMinP {
     fn default() -> Self {
         Self {
-            p: 0.9f32,
+            p: 0.05f32,
             min_keep: 1,
         }
     }
 }
 
-impl SampleTopP {
+impl SampleMinP {
     pub fn new(p: L, min_keep: usize) -> Self {
         Self { p, min_keep }
     }
@@ -42,32 +47,31 @@ impl SampleTopP {
     }
 }
 
-impl Sampler for SampleTopP {
+impl Sampler for SampleMinP {
     fn sample<'a>(
         &mut self,
         _res: &mut dyn HasSamplerResources,
         logits: &'a mut Logits,
     ) -> anyhow::Result<&'a mut Logits> {
-        use std::ops::ControlFlow::*;
-
         let Self { p, min_keep } = *self;
+        if p == 0f32 || logits.is_empty() {
+            return Ok(logits);
+        }
+
         logits.ensure_softmax()?;
 
-        let mut cum_sum = 0f32;
-        let last_idx =
-            match logits
-                .iter()
-                .enumerate()
-                .try_fold(logits.len(), |last_idx, (idx, logit)| {
-                    cum_sum += logit.prob;
-                    if cum_sum >= p && idx + 1 >= min_keep {
-                        return Break(idx + 1);
-                    }
-                    Continue(last_idx)
-                }) {
-                Continue(i) => i,
-                Break(i) => i,
-            };
+        if logits.len() <= min_keep {
+            return Ok(logits);
+        }
+
+        let threshold = logits[0].prob * p;
+        let last_idx = logits
+            .iter()
+            .enumerate()
+            .skip(1.max(min_keep))
+            .find(|(_, l)| l.prob < threshold)
+            .map(|(idx, _)| idx)
+            .unwrap_or_else(|| logits.len());
         if last_idx != logits.len() {
             logits.truncate(last_idx);
             logits.set_softmax(false);
@@ -76,21 +80,22 @@ impl Sampler for SampleTopP {
     }
 }
 
-impl ConfigurableSampler<usize, L> for SampleTopP {}
+impl ConfigurableSampler<usize, L> for SampleMinP {}
 
-impl HasSamplerMetadata<usize, L> for SampleTopP {
+impl HasSamplerMetadata<usize, L> for SampleMinP {
     fn sampler_metadata(&self) -> SamplerMetadata {
         SamplerMetadata {
-            name: "top-p",
+            name: "min-p",
             description: Some(concat!(
-                "This sampler adds up the token probabilities until the value is ",
-                "greater or equal to p and at least min_keep tokens have been encountered.",
-                " The remaining tokens are eliminated."
+                "This sampler prunes tokens that don't meet a certain percentage",
+                " of the most probable token. For example if `p` is `0.05` then",
+                " after `min_keep` is satisfied, other tokens must be at least 5%",
+                " of the most probable token.",
             )),
             options: vec![
                 SamplerOptionMetadata {
                     key: "p",
-                    description: Some("Target value for cumulative probabilities."),
+                    description: Some("Threshold value."),
                     option_type: SamplerOptionType::Float,
                 },
                 SamplerOptionMetadata {
